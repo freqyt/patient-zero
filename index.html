@@ -13,8 +13,11 @@
   html,body{margin:0;height:100%;background:#0b0710;overflow:hidden;color:var(--pale);
     font-family:"Press Start 2P",ui-monospace,Consolas,monospace;user-select:none;-webkit-user-select:none;touch-action:none}
   canvas{display:block;image-rendering:pixelated}
-  .ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;
-    padding:16px;box-sizing:border-box;background:rgba(11,7,16,.72)}
+  /* overlays centre their content when it fits and scroll (instead of clipping) when it doesn't */
+  .ov{position:fixed;inset:0;display:none;align-items:center;justify-content:flex-start;flex-direction:column;text-align:center;
+    padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));box-sizing:border-box;background:rgba(11,7,16,.72);
+    overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+  .ov > :first-child{margin-top:auto} .ov > :last-child{margin-bottom:auto}
   .ov.show{display:flex}
   #title{background:linear-gradient(rgba(11,7,16,.35),rgba(11,7,16,.8))}
   h1{font-size:clamp(28px,7vw,64px);margin:0;color:var(--green);letter-spacing:2px;line-height:1.1;
@@ -55,6 +58,20 @@
   .btn.small{font-size:11px;padding:10px 16px}
   .dna{font-size:clamp(10px,1.8vw,13px);color:#c8a0ff;margin:4px 0 14px;text-shadow:2px 2px 0 var(--ink)}
   #shopGrid{max-height:60vh;overflow:auto;padding:6px}
+  /* phones / short screens: cards become compact rows, icon left, text right */
+  @media (max-width:600px), (max-height:620px){
+    h2{margin-bottom:6px}
+    .level-sub{display:none}
+    .cards{flex-direction:column;align-items:center;gap:10px;margin-top:6px}
+    .card{width:min(440px,92vw);display:grid;grid-template-columns:44px 1fr;column-gap:12px;align-items:center;text-align:left;padding:10px 12px 10px 10px}
+    .card .ic{grid-column:1;grid-row:1 / span 5;width:44px;height:44px;margin:0}
+    .card > :not(.ic):not(.k){grid-column:2}
+    .card .k{display:none}
+    .card .nm{margin:0 0 4px} .card .lv{margin-bottom:4px} .card .ds{line-height:1.6} .card .hint{margin-top:4px}
+    .card .pips{justify-content:flex-start;margin:0 0 4px}
+    .card:hover,.card:focus-visible{transform:none}
+    #shopGrid{max-height:none;overflow:visible}
+  }
   @media (hover:none){ .desk{display:none} }
   @media (hover:hover){ .mob{display:none} }
 </style>
@@ -82,7 +99,7 @@
 
 <div id="level" class="ov">
   <h2>MUTATION!</h2>
-  <div class="sub" style="margin:0 0 6px">YOUR FLESH TWISTS. CHOOSE ONE.</div>
+  <div class="sub level-sub" style="margin:0 0 6px">YOUR FLESH TWISTS. CHOOSE ONE.</div>
   <div id="slots" class="sub" style="margin:0 0 6px;color:#ffd860"></div>
   <div id="cards" class="cards"></div>
   <div class="row"><button id="reroll" class="btn small alt">REROLL</button></div>
