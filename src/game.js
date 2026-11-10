@@ -202,13 +202,25 @@ function openLevel(reroll){
     else if (k.startsWith('evo:')){ const b = k.slice(4), V = EVOS[b]; c.className = 'card evo';
       c.innerHTML = `<div class="k">${i+1}</div><img class="ic" src="${emojiIcon(V.ic,'#7a5208').toDataURL()}" alt=""><div class="nm">${V.n}</div>
         <div class="lv">EVOLUTION: ${MUTS[b].n.toUpperCase()} + ${MUTS[V.w].n.toUpperCase()}</div><div class="ds">${V.d}</div>`; }
-    else { const M = MUTS[k], l = L(k), src = mutIcon(k).toDataURL(), ev = EVOS[k] && !E(k) ? `<div class="hint">EVOLVES WITH ${MUTS[EVOS[k].w].n.toUpperCase()}</div>` : '';
+    else { const M = MUTS[k], l = L(k), src = mutIcon(k).toDataURL(), ev = evoHint(k);
       c.innerHTML = `<div class="k">${i+1}</div><img class="ic" src="${src}" alt=""><div class="nm">${M.n}</div>
         <div class="lv ${l?'':'new'}">${l ? 'LV '+l+' &gt; '+(l+1) : 'NEW!'}</div><div class="ds">${l?M.u:M.b}</div>${ev}`; }
     c.onclick = () => choose(k);
     el.appendChild(c);
   });
   const rb = $('reroll'); rb.style.display = S.rerolls > 0 ? '' : 'none'; rb.textContent = `REROLL (${S.rerolls})`;
+}
+// evolution hint, shown only when this card pairs with a mutation you already own:
+// "WITH [icon] PARTNER" then "> [icon] EVOLUTION NAME"
+function evoHint(k){
+  let base = null, partner = null;
+  if (EVOS[k] && !E(k) && L(EVOS[k].w) > 0){ base = k; partner = EVOS[k].w; }
+  else for (const b in EVOS) if (EVOS[b].w === k && L(b) > 0 && !E(b)){ base = b; partner = b; break; }
+  if (!base) return '';
+  const img = c => `<img src="${c.toDataURL()}" alt="">`, V = EVOS[base];
+  const need = base === k ? 'MAX THIS' : `MAX ${MUTS[base].n.toUpperCase()}`;
+  return `<div class="hint"><div class="ln">WITH ${img(emojiIcon(MUTS[partner].ic))} ${MUTS[partner].n.toUpperCase()}</div>
+    <div class="ln evo-to">&gt; ${img(emojiIcon(V.ic, '#7a5208'))} ${V.n.toUpperCase()}</div><div class="ln need">${need} TO EVOLVE</div></div>`;
 }
 function choose(k){
   if (S.state!=='level') return;

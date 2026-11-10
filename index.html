@@ -50,7 +50,10 @@
   .stats span{color:var(--green)}
   .card.evo{border-color:#e8c048;background:linear-gradient(#2a2010,#1a1024);box-shadow:0 0 0 3px var(--ink),0 0 18px 2px rgba(232,192,72,.45)}
   .card.evo .nm{color:#ffe070} .card.evo .lv{color:#e8c048;line-height:1.6}
-  .card .hint{font-size:8px;color:#c8a048;margin-top:10px;line-height:1.6}
+  .card .hint{font-size:8px;color:#c8a048;margin-top:10px;line-height:1.6;border-top:2px dashed #4a3a2a;padding-top:8px}
+  .card .hint .ln{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap}
+  .card .hint img{width:20px;height:20px;image-rendering:pixelated}
+  .card .hint .evo-to{color:#ffe070;font-size:9px} .card .hint .need{color:#8a7a6a;font-size:7px}
   .card .pips{display:flex;gap:4px;justify-content:center;margin:2px 0 8px} .card .pips i{width:10px;height:6px;background:#3a2e44;display:block} .card .pips i.on{background:var(--green)}
   .card.maxed{opacity:.6} .card.poor .lv{color:#8a6a7a}
   .row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;align-items:center;margin-top:6px}
@@ -67,7 +70,7 @@
     .card .ic{grid-column:1;grid-row:1 / span 5;width:44px;height:44px;margin:0}
     .card > :not(.ic):not(.k){grid-column:2}
     .card .k{display:none}
-    .card .nm{margin:0 0 4px} .card .lv{margin-bottom:4px} .card .ds{line-height:1.6} .card .hint{margin-top:4px}
+    .card .nm{margin:0 0 4px} .card .lv{margin-bottom:4px} .card .ds{line-height:1.6} .card .hint{margin-top:6px;padding-top:5px} .card .hint .ln{justify-content:flex-start}
     .card .pips{justify-content:flex-start;margin:0 0 4px}
     .card:hover,.card:focus-visible{transform:none}
     #shopGrid{max-height:none;overflow:visible}
