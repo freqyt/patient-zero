@@ -382,7 +382,9 @@ function lighting(nt){
   for (const l of visibleLamps()){
     if (l.broken) continue;
     let a = 1; if (l.flick){ const v = Math.sin(T*23+l.ph)*Math.sin(T*7.3+l.ph*2); a = v > 0.55 ? 0.1 : 1; }
-    Ls.push({x:sx(l.x), y:sy(l.y)+2, r:58, spr:BAND.warm, a, amb:true, hx:sx(l.x), hy:sy(l.y)-52});
+    if (l.fire) a = 0.8 + 0.2*Math.sin(T*13+l.ph)*Math.sin(T*5.1+l.ph);
+    // map lights (campfires, floodlights, fire barrels) set their own colour, radius and head height
+    Ls.push({x:sx(l.x), y:sy(l.y)+2, r:l.lr || 58, spr:BAND[l.light || 'warm'], a, amb:true, hx:sx(l.x), hy:sy(l.y)-(l.lh === undefined ? 52 : l.lh)});
   }
   if (S){
     const p = S.player;
@@ -448,7 +450,7 @@ function lighting(nt){
 }
 function post(nt){
   lg.globalCompositeOperation = 'multiply';
-  lg.fillStyle = nt > 0.5 ? '#b8bce4' : '#dcd4cc'; lg.fillRect(0,0,LW,LH);
+  const M = curMap(); lg.fillStyle = nt > 0.5 ? M.night : M.day; lg.fillRect(0,0,LW,LH);
   lg.globalCompositeOperation = 'source-over';
   const dusk = Math.sin(clamp(nt,0,1)*Math.PI);
   if (dusk > 0.02){ lg.fillStyle = `rgba(255,100,40,${0.1*dusk})`; lg.fillRect(0,0,LW,LH); }

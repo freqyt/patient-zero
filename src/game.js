@@ -130,7 +130,7 @@ function killHuman(h){
   if (h.boss){
     heal(60, 'boss'); S.shake = 16;
     for (let i=0;i<(h.type==='heli'?6:2);i++) FX.explosion(h.x+rand(-40,40), h.y+rand(-30,20), rand(80,140), 'fire');
-    if (h.type==='heli'){ S.winT = 2.8; banner('GUNSHIP DOWN', 'THE CITY IS YOURS'); SFX.play('nuke'); }
+    if (h.type==='heli'){ S.winT = 2.8; banner('GUNSHIP DOWN', curMap().place + ' IS YOURS'); SFX.play('nuke'); }
     else { S.st.bossKills = (S.st.bossKills||0) + 1; banner(BOSS_NAME[h.type]+' DOWN','IT DROPPED A BOSS CHEST'); S.items.push({k:'chest', x:h.x, y:h.y, t:1e9, seed:Math.random(), pop:0.5}); }
     return;
   }
@@ -193,7 +193,7 @@ function gameOver(win){
   SFX.play(win ? 'win' : 'gameover'); MUSIC.setMode('title');
   setState('over');
   const dna = META.runReward(S.kills, S.level, S.t, win) + S.bonusDna; META.award(dna, S.t, S.kills, win);
-  $('overTitle').textContent = win ? 'THE CITY HAS FALLEN' : 'YOU WERE PUT DOWN';
+  $('overTitle').textContent = win ? curMap().place + ' HAS FALLEN' : 'YOU WERE PUT DOWN';
   $('overTitle').style.color = win ? '#9be03a' : '#ff5a5a';
   $('overSub').textContent = win ? 'The gunship burns. The streets belong to the dead.' : 'Patient Zero is gone... but the infection lingers.';
   const mm = Math.floor(S.t/60), ss = String(Math.floor(S.t%60)).padStart(2,'0');
@@ -515,7 +515,7 @@ function update(dt){
   if (S.t >= S.nextCrowd){ S.nextCrowd += 50; spawnCrowd(); }
   [240, 480].forEach((bt, i) => { if (S.t >= bt && !S.bosses[bt]){ S.bosses[bt] = true; spawnBoss(S.bossPlan[i]); } });   // random bosses each run
   if (S.t >= 540 && !S.bosses.heli){ S.bosses.heli = true; const [x,y] = edgePos(60); spawnHuman('heli', x, y);
-    banner('GUNSHIP INBOUND','DESTROY IT TO TAKE THE CITY'); SFX.play('alarm'); }
+    banner('GUNSHIP INBOUND','DESTROY IT TO TAKE ' + curMap().place); SFX.play('alarm'); }
   if (S.t >= 555 && !S.finalWave){ S.finalWave = true; for (let i=0;i<14;i++) spawnHuman(i%3 ? 'soldier' : 'riot'); }
   if (S.t >= GAME_LEN && !S.overtime && S.winT <= 0){ S.overtime = true; banner('OVERTIME','THE GUNSHIP MUST FALL'); }
   if (S.crowd){ S.crowd.t -= dt; if (S.crowd.t<=0) S.crowd = null; }
@@ -705,6 +705,7 @@ addEventListener('keydown', e => {
   if (k==='m'){ SFX.toggle(); return; }
   if (k===' ' || k.startsWith('arrow')) e.preventDefault();
   if ($('shop').classList.contains('show')){ if (k==='escape') closeShop(); return; }
+  if ($('maps').classList.contains('show')){ if (k==='escape') closeMaps(); if (k==='enter') pickMap(MAP_ID); return; }
   if ($('chars').classList.contains('show')){ if (k==='escape') closeChars(); if (k==='enter') pickChar(selChar); return; }
   if (!S){ if (k==='enter' || k===' ') openChars('title'); return; }
   if (S.state==='play'){
@@ -764,6 +765,7 @@ function drawTouchUI(){
 $('startBtn').onclick = () => openChars('title');
 $('againBtn').onclick = () => openChars('over');
 $('charsBack').onclick = closeChars;
+$('mapsBack').onclick = closeMaps;
 $('labBtn').onclick = () => openShop('title');
 $('labBtn2').onclick = () => openShop('over');
 $('shopBack').onclick = closeShop;

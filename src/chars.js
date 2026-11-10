@@ -64,7 +64,7 @@ function openChars(from){
   $('chars').classList.add('show'); renderChars();
 }
 function closeChars(){ $('chars').classList.remove('show'); refreshTitleDna(); $(charsReturn).classList.add('show'); }
-function pickChar(id){ selChar = id; try { localStorage.setItem('pz-char', id); } catch (e) {} $('chars').classList.remove('show'); startGame(id); }
+function pickChar(id){ selChar = id; try { localStorage.setItem('pz-char', id); } catch (e) {} openMaps(id); }
 function renderChars(){
   const el = $('charGrid'); el.innerHTML = '';
   for (const id of CHAR_ORDER){
