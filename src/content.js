@@ -43,7 +43,7 @@ function maybeElite(h){
 }
 function eliteDeath(h){
   S.st.elites = (S.st.elites||0) + 1;
-  if (Math.random() < 0.35){ spawnItem(pickItemType(), h.x, h.y); S.items[S.items.length-1].pop = 0.4; }
+  if (Math.random() < 0.35 + 0.05*luck()){ spawnItem(pickItemType(), h.x, h.y); S.items[S.items.length-1].pop = 0.4; }
   if (h.elite === 'explosive') explode(h.x, h.y, 70, 18, 'human', null, 'elite');
 }
 
@@ -118,7 +118,7 @@ function updateContent(dt, p){
   if (l){ S.wt.lash = Math.max(0, (S.wt.lash||0) - dt);
     if (S.wt.lash <= 0){ const R = (150 + 15*l)*rng, n = 1 + Math.floor(l/2) + (E('lash') ? 1 : 0);
       const tg = S.humans.filter(h => vis(h) && d2(h,p) < R*R).sort((a,b) => d2(a,p)-d2(b,p)).slice(0,n);
-      if (tg.length){ S.wt.lash = Math.max(0.9, 2.0 - 0.2*l)*(E('lash') ? 0.85 : 1); SFX.play('lash');
+      if (tg.length){ S.wt.lash = Math.max(0.9, 2.0 - 0.2*l)*(E('lash') ? 0.85 : 1)/AS(); SFX.play('lash');
         for (const t of tg){ dmgHuman(t, crit(t, (12 + 6*l)*(E('lash') ? 1.4 : 1)), 'lash');
           if (!t.boss){ const d = pd2(t,p) || 1; t.kx = (p.x-t.x)/d*260; t.ky = (p.y-t.y)/d*260; }
           if (E('lash')) heal(2, 'lash');
@@ -126,7 +126,7 @@ function updateContent(dt, p){
   // Spore Pods: drop mines that burst on contact
   l = L('spores');
   if (l){ S.wt.spores = (S.wt.spores ?? 2) - dt;
-    if (S.wt.spores <= 0){ S.wt.spores = Math.max(1.4, 4.2 - 0.45*l);
+    if (S.wt.spores <= 0){ S.wt.spores = Math.max(1.4, 4.2 - 0.45*l)/AS();
       for (let i=0;i<(E('spores') ? 3 : 1);i++) S.mines.push({x:p.x+rand(-40,40), y:p.y+rand(-30,30), arm:0.6, t:14, r:(46+8*l)*(E('spores')?1.6:1), dmg:28+12*l, seed:Math.random()});
       SFX.play('spore'); } }
   for (const m of S.mines){ m.t -= dt; m.arm -= dt; if (m.arm > 0 || m.gone) continue;
@@ -143,7 +143,7 @@ function updateContent(dt, p){
   S.cures = S.cures.filter(c => c.t > 0);
   // Bone Gatling item: 8 seconds of rapid, piercing bone rounds at the nearest visible humans
   if (p.saw > 0){ p.saw -= dt; S.st.sawTime += dt; S.gatT = (S.gatT||0) - dt;
-    if (S.gatT <= 0){ S.gatT = 0.075;
+    if (S.gatT <= 0){ S.gatT = 0.075/AS();
       const tg = S.humans.filter(h => vis(h) && d2(h,p) < 360*360).sort((a,b) => d2(a,p)-d2(b,p)).slice(0,3);
       if (tg.length){ const t = tg[(S.gatI = ((S.gatI||0)+1) % tg.length)], a = Math.atan2(t.y-p.y, t.x-p.x) + rand(-.05,.05);
         p.face = a; SFX.play('gatling', 0.6);

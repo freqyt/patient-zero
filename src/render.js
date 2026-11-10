@@ -81,6 +81,7 @@ function drawPlayerFx(p){
 const ICON = {};
 function pixIcon(rows, cols){ const h = rows.length, w = rows[0].length, c = mk(w,h), g = c.getContext('2d');
   rows.forEach((r,y) => { for (let x=0;x<w;x++){ const ch = r[x]; if (ch!=='.'){ g.fillStyle = cols[ch]; g.fillRect(x,y,1,1); } } }); return c; }
+ICON.clover = pixIcon(['.#.#.','#####','.###.','#####','.#.#.','..s..'], {'#':'#5ad03a', s:'#8a7a3a'});
 ICON.heart = pixIcon(['.##.##.','#######','#a#####','.#####.','..###..','...#...'], {'#':'#e83a4a', a:'#ffb0b8'});
 ICON.skull = pixIcon(['.#####.','#######','#..#..#','#######','.##.##.','.#.#.#.'], {'#':'#ece4d0'});
 ICON.zed = pixIcon(['.#####.','#######','#y##y##','#######','##rrr##','.#####.'], {'#':'#9cc05a', y:'#eaff60', r:'#6a1424'});
@@ -503,11 +504,12 @@ function drawHUD(nt){
   pcirc(lg, Math.round(sx0 + sw*ph), sy0+1, 2, '#170d1c'); pcirc(lg, Math.round(sx0 + sw*ph), sy0+1, 1, night ? '#c8d8ff' : '#ffd860');
   if (night && (S.t*2|0)%2) ptext(lg, 'NIGHT', tcx, sy0+5, '#9ab0ff', {align:'center', shadow:'#170d1c'});
 
-  win(LW-50,6,47,37);
+  win(LW-50,6,47,48);
   lg.drawImage(ICON.skull, LW-46, 10); ptext(lg, S.kills, LW-7, 10, '#f0e8e0', {align:'right'});
   ptext(lg, 'LV', LW-46, 21, '#ff9ccc'); ptext(lg, S.level, LW-7, 21, '#ff9ccc', {align:'right'});
   lg.drawImage(ITEM_SPR.dice, LW-47, 30); ptext(lg, S.rerolls, LW-7, 32, '#c8d8ff', {align:'right'});
-  drawMinimap(LW-50, 46, 47, 38);
+  lg.drawImage(ICON.clover, LW-46, 42); ptext(lg, luck(), LW-7, 42, '#7aff7a', {align:'right'});
+  drawMinimap(LW-50, 57, 47, 38);
 
   const boss = S.humans.find(h => h.boss);
   if (boss){ const bw = Math.min(160, LW-24), bx = Math.round(LW/2 - bw/2), by = narrow ? 70 : 38;
@@ -594,6 +596,18 @@ const ITEM_SPR = {
     'GBRBBBBBBBBBBRBG',
     'GBBBBBBBBBBBBBBG',
     '.GGGGGGGGGGGGGG.'], {G:'#a87a18', Y:'#e8c040', L:'#fff0a0', B:'#6a3e1a', W:'#8a5a2a', K:'#2a1a0a', R:'#c8a050'}),
+  clover: itemSpr([
+    '..LL...LL..',
+    '.LGGL.LGGL.',
+    '.LGGGLGGGL.',
+    '..LGGDGGL..',
+    '.LLGDDDGLL.',
+    'LGGGDDDGGGL',
+    'LGGGLDLGGGL',
+    '.LGGL.LGGL.',
+    '..LL.S.LL..',
+    '.....S.....',
+    '....S......'], {L:'#2e7a1e', G:'#5ad03a', D:'#9aff6a', S:'#6a5a2a'}),
   dice: itemSpr([
     '.WWWWWWW.',
     'WWWWWWWWS',
@@ -617,8 +631,8 @@ const ITEM_SPR = {
     '.CCCCCCCCC.',
     '..GG...G...'], {C:'#8a8e96', Y:'#e8c830', L:'#fff080', D:'#a08010', K:'#1a1a1a', G:'#8ae03a'}),
 };
-const ITEM_COL = {chest:'#ffe070', heart:'#ff6a7a', magnet:'#ff9ccc', saw:'#ffb040', bomb:'#9be03a', dice:'#c8d8ff'};
-const ITEM_BAND = {chest:'yellow', heart:'red', magnet:'pink', saw:'orange', bomb:'toxic', dice:'blue'};
+const ITEM_COL = {clover:'#7aff7a', chest:'#ffe070', heart:'#ff6a7a', magnet:'#ff9ccc', saw:'#ffb040', bomb:'#9be03a', dice:'#c8d8ff'};
+const ITEM_BAND = {clover:'toxic', chest:'yellow', heart:'red', magnet:'pink', saw:'orange', bomb:'toxic', dice:'blue'};
 function drawItem(it){
   if (it.t < 5 && (S.t*8|0)%2) return;   // blink before despawning
   if (it.k==='chest' && Math.random() < 0.3) S.parts.push({k:'spark', x:it.x+rand(-14,14), y:it.y-rand(0,10), vx:0, vy:-40, t:.4, max:.4, col:'#ffe070'});

@@ -11,6 +11,7 @@ const META = (() => {
     reroll:   {n:'MUTAGEN',        d:'+1 starting reroll (base 3)',       max:3, cost:50, ic:'🎲'},
     appetite: {n:'APPETITE',       d:'+6% XP from brains',               max:5, cost:40, ic:'🧠'},
     scent:    {n:'SCENT',          d:'+20% brain pickup range',          max:3, cost:35, ic:'👃'},
+    lucky:    {n:'LUCKY STRAIN',   d:'+1 luck every run',                max:3, cost:55, ic:'🍀'},
     virulence:{n:'VIRULENCE',      d:'+3% chance the slain rise',        max:5, cost:45, ic:'🦠'},
   };
   const rank = k => data.up[k] || 0;

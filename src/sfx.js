@@ -153,6 +153,7 @@ const SFX = (() => {
     roar(v){ voice({type:'sawtooth', f0:90, f1:60, dur:.6, vol:.18*v, lp:600, echo:.4}); hiss({dur:.5, vol:.2*v, f0:900, f1:300, brown:true}); },
     gatling(v){ hiss({dur:.04, vol:.22*v, f0:3200, f1:900, type:'bandpass', q:1.5}); voice({type:'sine', f0:150, f1:70, dur:.04, vol:.14*v}); },
     gatlingUp(v){ for (let i=0;i<6;i++) hiss({dur:.04, vol:.25*v, f0:2400+i*300, f1:900, type:'bandpass', q:2, delay:i*.05}); voice({type:'sawtooth', f0:80, f1:220, dur:.35, vol:.1*v, lp:1600}); },
+    lucky(v){ [784,988,1175,1568].forEach((f,i) => voice({type:'triangle', f0:f, dur:.18, vol:.07*v, delay:i*.06, lp:5000, echo:.6})); hiss({dur:.4, vol:.06*v, f0:6000, f1:10000, type:'highpass', delay:.2, echo:.6}); },
     // items
     item(v){ voice({type:'triangle', f0:880, f1:1320, dur:.18, vol:.06*v, lp:4000, echo:.6}); voice({type:'sine', f0:1760, dur:.12, vol:.03*v, delay:.08, echo:.6}); },
     eat(v){ for (let i=0;i<3;i++) hiss({dur:.08, vol:.45*v, f0:R(1200,2200), f1:250, type:'bandpass', q:2, delay:i*.1});
@@ -172,7 +173,7 @@ const SFX = (() => {
   const GAP = {gun:.075, mg:.1, die:.16, squish:.12, bite:.08, flame:.22, pickup:.04, bone:.1, spit:.07, boom:.12, rise:.25, hurt:.14, crowd:1,
     sawbuzz:.14, item:.2, baton:.12, splat:.1, lash:.1, spore:.2, bark:.15, healpulse:.3, siren:1, gatling:.06, roar:.5, crack:.1, clang:.1};
   // sounds that must always play (player feedback & big moments); everything else yields when busy
-  const KEY = new Set(['levelup','lvlmax','gatlingUp','snipe','evolve','select','click','hurt','alarm','nuke','night','dawn','gameover','win','devour','eat','magnet','saw','chest','crateBreak']);
+  const KEY = new Set(['lucky','levelup','lvlmax','gatlingUp','snipe','evolve','select','click','hurt','alarm','nuke','night','dawn','gameover','win','devour','eat','magnet','saw','chest','crateBreak']);
   const MAX_LIVE = 36, BURST = 7;          // concurrent sources, and new sounds allowed per 60ms window
   let winStart = 0, winCount = 0;
   function play(name, vol=1, arg){

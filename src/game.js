@@ -48,6 +48,12 @@ function heal(v, src){ const p = S.player, before = p.hp; p.hp = Math.min(p.maxH
 // per-run stat counters for the post-game breakdown
 function stat(cat, key, v){ if (v > 0) S.st[cat][key] = (S.st[cat][key] || 0) + v; }
 const isTarget = h => h.type !== 'crate' && h.type !== 'hazard';
+// luck: Lucky Rot levels + clovers picked up this run + DNA Lab Lucky Strain
+const luck = () => L('luck') + (S.luckBonus || 0) + META.rank('lucky');
+// attack speed multiplier: every cooldown is divided by this
+const AS = () => 1 + 0.1*L('haste');
+// Mutant Might boosts everything you deal yourself (not your horde or the environment)
+const NOT_MINE = new Set(['minion','bloater','hazard','elite','bomb']);
 
 // ---------- spawning ----------
 // a random point just outside the visible screen rectangle
@@ -82,7 +88,7 @@ function nearestHuman(o, maxD, forMinion){ let best = null, bd = maxD*maxD;
   for (const h of S.humans){ if (h.dead || (forMinion && (h.air || h.type==='hazard'))) continue; const d = d2(o,h); if (d<bd){ bd=d; best=h; } } return best; }
 // player-sourced hits can crit for double damage, shown as a pop-up number
 function crit(h, dmg){
-  if (Math.random() < 0.12 + 0.04*L('eyes') && isTarget(h)){ dmg *= 2; floatText(h.x, h.y-10, Math.round(dmg)+'!', '#ffe060', true); }
+  if (Math.random() < 0.12 + 0.04*L('eyes') + 0.03*luck() && isTarget(h)){ dmg *= 2; floatText(h.x, h.y-10, Math.round(dmg)+'!', '#ffe060', true); }
   return dmg;
 }
 function dmgHuman(h, dmg, src, quiet){
@@ -94,6 +100,7 @@ function dmgHuman(h, dmg, src, quiet){
   }
   if (h.type==='riot' && src!=='bite' && src!=='minion' && src!=='saw' && src!=='bomb') dmg *= 0.5;
   if (h.elite==='armored') dmg *= 0.6;
+  if (L('might') && !NOT_MINE.has(src)) dmg *= 1 + 0.12*L('might');
   stat('dmg', src, Math.min(dmg, Math.max(0, h.hp))); h.lastSrc = src;
   h.hp -= dmg;
   if (!quiet){ h.flash = 0.07; if (Math.random()<0.5) FX.blood(h.x,h.y,2,false); }
@@ -196,7 +203,7 @@ const HEAL_INFO = {hide:['Necrotic Hide','🛡️'], hunger:['Ravenous','🍖'],
   feast:['Feast','🩸'], leech:['Blood Leech','🩸'], lash:['Blood Whip','🐙'], chitin:['Chitin (blocked)','🐚'], boss:['Boss Kills','💀'], other:['Other','❔']};
 const TAKEN_INFO = {beat:['Baton Cops','👮'], cop:['Pistol Cops','🔫'], soldier:['Soldiers','🪖'], riot:['Riot Police','🛡️'], flamer:['Flamethrowers','🔥'],
   apc:['Armored Carrier','🚛'], heli:['Gunship','🚁'], shell:['Shells','💣'], dog:['K9 Units','🐕'], grenadier:['Grenadiers','💣'], sniper:['Snipers','🎯'], swat:['SWAT Van','🚓'], jugg:['Juggernaut','🦾'], cure:['The Cure','💉'], elite:['Volatile Elites','💥'], other:['Other','❔']};
-const ITEM_NAMES = {heart:'Hearts', magnet:'Magnets', saw:'Gatlings', bomb:'Biohazards', dice:'Dice', chest:'Chests'};
+const ITEM_NAMES = {heart:'Hearts', magnet:'Magnets', saw:'Gatlings', clover:'Clovers', bomb:'Biohazards', dice:'Dice', chest:'Chests'};
 const fmtN = v => v >= 10000 ? (v/1000).toFixed(1) + 'k' : v >= 100 ? Math.round(v) + '' : v >= 10 ? v.toFixed(0) : v.toFixed(1);
 function srcLabel(k){
   const I = SRC_INFO[k] || SRC_INFO.other;
@@ -232,7 +239,7 @@ function statsHTML(){
   const evos = Object.keys(S.evo).map(k => EVOS[k].n).join(', ') || 'none';
   const misc = `<div class="sect"><div class="sh">THE OUTBREAK</div><div class="misc">
     <span>Zombies raised <b>${st.risen}</b></span><span>Horde lost <b>${st.lost}</b></span><span>Biggest horde <b>${S.maxHorde}</b></span>
-    <span>Minions devoured <b>${st.devours}</b></span><span>Crates smashed <b>${st.crates}</b></span><span>Elites slain <b>${st.elites||0}</b></span><span>Total damage <b>${fmtN(totalD)}</b></span>
+    <span>Minions devoured <b>${st.devours}</b></span><span>Crates smashed <b>${st.crates}</b></span><span>Elites slain <b>${st.elites||0}</b></span><span>Luck <b>${luck()}</b></span><span>Attack speed <b>+${Math.round((AS()-1)*100)}%</b></span><span>Total damage <b>${fmtN(totalD)}</b></span>
     <span class="wide">Items: <b>${items}</b></span><span class="wide">Evolutions: <b>${evos}</b></span></div></div>`;
   return section('DAMAGE DEALT', dRows, 'No damage dealt.') + section('HEALING', hRows, 'No healing.') + section('DAMAGE TAKEN', tRows, 'Untouched!') + misc;
 }
@@ -260,7 +267,11 @@ function openLevel(reroll){
   // a ready evolution always takes the first card
   if (evos.length) opts.push('evo:' + pick(evos));
   $('slots').textContent = full ? `SLOTS FULL ${MAX_SLOTS}/${MAX_SLOTS} - UPGRADES ONLY` : `MUTATION SLOTS ${owned.length}/${MAX_SLOTS}`;
-  while (opts.length < 3 && pool.length) opts.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+  let nCards = 3; const lk = luck();
+  if (Math.random() < lk*0.15) nCards++;
+  if (lk >= 7 && Math.random() < (lk-6)*0.15) nCards++;
+  if (nCards > 3 && pool.length + opts.length > 3) $('slots').textContent += '  -  LUCKY! +' + (nCards-3) + ' CHOICE' + (nCards > 4 ? 'S' : '');
+  while (opts.length < nCards && pool.length) opts.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
   if (!opts.length) opts.push('_heal');
   const el = $('cards'); el.innerHTML = '';
   opts.forEach((k,i) => {
@@ -302,7 +313,7 @@ function choose(k){
 function rerollLevel(){ if (S.state==='level' && S.rerolls > 0){ S.rerolls--; SFX.play('click'); openLevel(true); } }
 
 // ---------- items & crates ----------
-const ITEMS = {heart:{n:'FRESH HEART', w:.34}, magnet:{n:'MAGNET', w:.26}, saw:{n:'BONE GATLING', w:.22}, bomb:{n:'BIOHAZARD', w:.18}, dice:{n:'REROLL DIE', w:.2}};
+const ITEMS = {heart:{n:'FRESH HEART', w:.34}, magnet:{n:'MAGNET', w:.26}, saw:{n:'BONE GATLING', w:.22}, bomb:{n:'BIOHAZARD', w:.18}, dice:{n:'REROLL DIE', w:.2}, clover:{n:'CLOVER', w:.14}};
 function pickItemType(){
   const p = S.player, w = {}; let sum = 0;
   for (const k in ITEMS){ w[k] = ITEMS[k].w * (k==='heart' && p.hp/p.maxHp < 0.5 ? 2.5 : 1); sum += w[k]; }
@@ -334,6 +345,8 @@ function useItem(it){
     case 'saw': p.saw = 8; SFX.play('gatlingUp'); floatText(p.x, p.y, 'BONE GATLING!', '#ece4c8'); break;
     case 'bomb': biohazard(); break;
     case 'chest': openChest(); break;
+    case 'clover': S.luckBonus = (S.luckBonus||0) + 1; SFX.play('lucky'); floatText(p.x, p.y, '+1 LUCK', '#7aff7a', true);
+      for (let i=0;i<12;i++) S.parts.push({k:'spark', x:p.x, y:p.y, vx:rand(-140,140), vy:rand(-180,20), t:rand(.3,.6), max:.6, col: Math.random()<.5 ? '#7aff7a' : '#e8ff9a'}); break;
     case 'dice': S.rerolls++; SFX.play('select'); floatText(p.x, p.y, '+1 REROLL', '#c8d8ff'); break;
   }
 }
@@ -424,7 +437,7 @@ function update(dt){
     const reach = 18 + 6*L('jaws'); let tgt = null, bd = 1e9;
     for (const h of S.humans){ if (h.dead || h.air) continue; const d = Math.sqrt(d2(p,h))-h.r-p.r; if (d<reach && d<bd){ bd=d; tgt=h; } }
     if (tgt){ const dmg = 20*(1+0.3*L('jaws'))*(p.frenzy>0?2:1)*(1+0.3*nt)*(1+0.04*(S.level-1));
-      SFX.play('bite'); dmgHuman(tgt, crit(tgt, dmg), 'bite'); p.biteCd = p.frenzy>0 ? 0.28 : 0.45; p.biteT = 0.12; p.biteA = Math.atan2(tgt.y-p.y, tgt.x-p.x); }
+      SFX.play('bite'); dmgHuman(tgt, crit(tgt, dmg), 'bite'); p.biteCd = (p.frenzy>0 ? 0.28 : 0.45)/AS(); p.biteT = 0.12; p.biteA = Math.atan2(tgt.y-p.y, tgt.x-p.x); }
   }
 
   // mutations: attacks only fire at targets on screen AND within range; otherwise they stay charged
@@ -436,17 +449,17 @@ function update(dt){
   if (l){ wt.spit = Math.max(0, wt.spit - dt); if (wt.spit<=0){
     const n = 1 + Math.floor(l/2) + (E('spit') ? 2 : 0);
     const tg = S.humans.filter(h => visible(h) && worth(h) && d2(h,p) < (320*(1+0.12*L('eyes')))**2).sort((a,b)=>d2(a,p)-d2(b,p)).slice(0,n);
-    if (tg.length){ wt.spit = 1.25*(1-0.1*l); SFX.play('spit', 0.6);
+    if (tg.length){ wt.spit = 1.25*(1-0.1*l)/AS(); SFX.play('spit', 0.6);
       for (let i=0;i<n;i++){ const t = tg[i % tg.length], a = Math.atan2(t.y-p.y,t.x-p.x) + (i>=tg.length ? rand(-.2,.2) : 0);
         S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*300*GS,vy:Math.sin(a)*300*GS,dmg:12+6*l,t:1.2/GS,r:6,pierce:1+Math.max(0,l-2)+(E('spit')?2:0),hit:new Set(),k:'spit'}); } } } }
   l = L('spikes');
-  if (l){ wt.spikes = Math.max(0, wt.spikes - dt); if (wt.spikes<=0 && anyTarget(160*(1+0.12*L('eyes')))){ wt.spikes = (3.2 - 0.3*l)*(E('spikes') ? 0.5 : 1); SFX.play('bone');
+  if (l){ wt.spikes = Math.max(0, wt.spikes - dt); if (wt.spikes<=0 && anyTarget(160*(1+0.12*L('eyes')))){ wt.spikes = (3.2 - 0.3*l)*(E('spikes') ? 0.5 : 1)/AS(); SFX.play('bone');
     const n = 6 + 2*l, off = Math.random()*TAU;
     for (let i=0;i<n;i++){ const a = off + i/n*TAU;
       S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*260*GS,vy:Math.sin(a)*260*GS,dmg:16+8*l,t:0.6/GS,r:5,pierce:3,hit:new Set(),k:'spike'}); } } }
   l = L('screech');
   if (l){ const R = (110 + 20*l)*(E('screech') ? 1.5 : 1);
-    wt.screech = Math.max(0, wt.screech - dt); if (wt.screech<=0 && anyTarget(R)){ wt.screech = E('screech') ? 3.5 : 7.5 - 0.8*l; SFX.play('screech');
+    wt.screech = Math.max(0, wt.screech - dt); if (wt.screech<=0 && anyTarget(R)){ wt.screech = (E('screech') ? 3.5 : 7.5 - 0.8*l)/AS(); SFX.play('screech');
     S.parts.push({k:'shock',x:p.x,y:p.y,r:10,max:R,t:.45,max2:.45,col:'#e6ffc0'});
     S.parts.push({k:'shock',x:p.x,y:p.y,r:4,max:R*0.7,t:.35,max2:.35,col:'#9be03a'});
     for (const h of S.humans){ if (h.dead || !isTarget(h)) continue; const d = Math.sqrt(d2(h,p));
@@ -468,7 +481,7 @@ function update(dt){
 
   // crates, items, hazards, chainsaw
   S.itemT -= dt;
-  if (S.itemT <= 0){ S.itemT = rand(9,14); if (S.humans.filter(h => h.type==='crate').length < 3) spawnCrate(); }
+  if (S.itemT <= 0){ S.itemT = rand(9,14)*Math.max(0.6, 1 - 0.05*luck()); if (S.humans.filter(h => h.type==='crate').length < 3) spawnCrate(); }
   for (const it of S.items){ it.t -= dt; if (it.pop > 0){ it.pop -= dt; continue; } if (d2(it,p) < (p.r+12)**2){ it.got = true; useItem(it); } }
   S.items = S.items.filter(it => !it.got && it.t > 0);
   S.hazT -= dt; if (S.hazT <= 0){ S.hazT = 0.3; promoteHazards(); }
@@ -665,7 +678,7 @@ addEventListener('keydown', e => {
     if (k==='e' || k==='shift') devour();
     if (k==='p' || k==='escape') setState('pause');
   } else if (S.state==='pause'){ if (k==='p' || k==='escape') setState('play'); }
-  else if (S.state==='level'){ if (k>='1' && k<='3'){ const c = $('cards').children[+k-1]; if (c) c.click(); } if (k==='r') rerollLevel(); }
+  else if (S.state==='level'){ if (k>='1' && k<='5'){ const c = $('cards').children[+k-1]; if (c) c.click(); } if (k==='r') rerollLevel(); }
   else if (S.state==='over'){ if (k==='r' || k==='enter') startGame(); }
 });
 addEventListener('keyup', e => { K[e.key.toLowerCase()] = false; });

@@ -211,6 +211,15 @@ function drawMuts(P, M, dir, X, hy){
     else for (let i=0;i<Math.min(4,v);i++) P(X-5-i,13+i*2,2,1,t); }
   if ((v = lv('eyes'))){ const s = front ? [[X-3,hy+1],[X+2,hy+1],[X-1,hy],[X-4,hy+5],[X+3,hy+5]] : side ? [[X+1+hx,hy+1],[X+3+hx,hy+1],[X+hx,hy+5]] : [];
     for (let i=0;i<Math.min(s.length,v);i++){ const [x,y] = s[i]; P(x,y,1,1,'#ffe060'); } }
+  if ((v = lv('haste'))){ const y1 = '#ffe84a';   // crackling yellow nerve-lines on the limbs
+    if (!side){ P(X-6,13,1,1,y1); P(X+5,14,1,1,y1); if (v>=2){ P(X-3,21,1,2,y1); P(X+2,22,1,1,y1); } if (v>=4){ P(X-6,15,1,1,y1); P(X+5,12,1,1,y1); } }
+    else { P(X+1,13,1,1,y1); if (v>=2) P(X,22,1,2,y1); if (v>=4) P(X-2,15,1,1,y1); } }
+  if ((v = lv('luck'))){   // a sprouting clover on the shoulder, more leaves with level
+    const cx = side ? X-3 : X+3, cy = 10; P(cx, cy, 1, 1, '#5ad03a'); if (v>=2) P(cx+1, cy-1, 1, 1, '#5ad03a'); if (v>=3) P(cx-1, cy-1, 1, 1, '#5ad03a'); if (v>=4) P(cx, cy-2, 1, 1, '#9aff6a'); }
+  if ((v = lv('might'))){ const m1 = '#7aa83a';   // swollen arms
+    if (front){ P(X-7,12,1,3+Math.min(2,v>>1),m1); P(X+6,12,1,3+Math.min(2,v>>1),m1); }
+    else if (back){ P(X-7,12,1,3,m1); P(X+6,12,1,3,m1); }
+    else P(X-2,12,1,3+Math.min(2,v>>1),m1); }
 }
 
 // ---------- character sprite builder (24x28, feet at row 25, centre x 12) ----------

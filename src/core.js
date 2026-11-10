@@ -79,7 +79,10 @@ const MUTS = {
   spores:   {n:'Spore Pods',      ic:'🍄', b:'Drop spore mines that burst when humans step near.',   u:'Bigger, deadlier blasts, more often.'},
   leech:    {n:'Blood Leech',     ic:'🩸', b:'Heal from the damage your horde deals.',               u:'More healing from your horde.'},
   chitin:   {n:'Chitin Shell',    ic:'🐚', b:'Chance to deflect bullets, and take 4% less damage.', u:'+8% deflect chance, 4% tougher.'},
+  haste:    {n:'Adrenal Surge',   ic:'⚡', b:'+10% attack speed for every attack and mutation.', u:'+10% attack speed.'},
+  luck:     {n:'Lucky Rot',       ic:'🍀', b:'+1 luck: more crits, more level-up choices, more loot.', u:'+1 luck.'},
+  might:    {n:'Mutant Might',    ic:'💪', b:'+12% damage from all your attacks.',               u:'+12% damage.'},
   eyes:     {n:'Extra Eyes',      ic:'👁️', b:'+12% attack range, pickup range and +4% crit chance.', u:'+12% range, +4% crit.'},
 };
 const MAXLV = 5;
-const MAX_SLOTS = 6;   // distinct mutations you can carry; once full, level-ups only upgrade owned ones
+const MAX_SLOTS = 8;   // distinct mutations you can carry; once full, level-ups only upgrade owned ones
