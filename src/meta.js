@@ -2,7 +2,9 @@
 // ---------- DNA Lab: persistent upgrades bought with DNA earned each run ----------
 const META = (() => {
   const KEY = 'pz-meta-v1';
-  let data = {dna:0, up:{}, best:{t:0, kills:0, wins:0}, chars:['zero']};
+  // runs: recent run log (newest first); ach: feat id -> date earned; seen: codex discoveries {cat:{key:count}};
+  // heat: highest Heat unlocked; life: lifetime totals
+  let data = {dna:0, up:{}, best:{t:0, kills:0, wins:0}, chars:['zero'], maps:['city'], runs:[], ach:{}, seen:{}, heat:0, heatSel:0, winsBy:{}, life:{kills:0, runs:0, time:0}};
   try { const s = localStorage.getItem(KEY); if (s) data = Object.assign(data, JSON.parse(s)); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
   const UPS = {
@@ -22,7 +24,7 @@ const META = (() => {
     UPS, rank, cost,
     hasChar: id => data.chars.includes(id),
     // save codes: every pz-* setting, JSON, base64, prefixed so we can recognise and version them
-    exportCode(){ const o = {}; for (const k of ['pz-meta-v1','pz-char','pz-muted']){ try { const v = localStorage.getItem(k); if (v !== null) o[k] = v; } catch (e) {} }
+    exportCode(){ const o = {}; for (const k of ['pz-meta-v1','pz-char','pz-muted','pz-settings']){ try { const v = localStorage.getItem(k); if (v !== null) o[k] = v; } catch (e) {} }
       if (!o['pz-meta-v1']) o['pz-meta-v1'] = JSON.stringify(data);
       return 'PZ1:' + btoa(unescape(encodeURIComponent(JSON.stringify(o)))); },
     importCode(code){ code = (code || '').trim();
@@ -31,11 +33,28 @@ const META = (() => {
       if (!o['pz-meta-v1']) throw new Error('The save code has no progress in it.');
       const d = JSON.parse(o['pz-meta-v1']); if (typeof d.dna !== 'number') throw new Error('The save code has no progress in it.');
       for (const k in o) if (k.startsWith('pz-')) localStorage.setItem(k, o[k]); },
+    // maps open one after another; a past run that reached 5:00 already counts for Pine Hollow
+    hasMap(id){ return id === 'city' || data.maps.includes(id) || (id === 'forest' && data.best.t >= 300); },
+    unlockMap(id){ if (this.hasMap(id)) return false; data.maps.push(id); save(); return true; },
     unlockChar(id){ if (data.chars.includes(id)) return false; data.chars.push(id); save(); return true; },
     get dna(){ return data.dna; }, get best(){ return data.best; },
     buy(k){ if (rank(k) >= UPS[k].max || data.dna < cost(k)) return false; data.dna -= cost(k); data.up[k] = rank(k) + 1; save(); return true; },
     // DNA for a run: kills, level reached and time survived; big bonus for a win
     runReward(kills, level, t, win){ return Math.floor(kills/8 + level*2 + t/20) + (win ? 100 : 0); },
+    addDna(n){ data.dna += n; save(); },
+    // ---- run history, feats, codex, heat ----
+    get runs(){ return data.runs; },
+    recordRun(r){ data.runs = [r, ...data.runs].slice(0, 25); data.life.runs++; data.life.kills += r.kills; data.life.time += r.t;
+      if (r.win){ data.winsBy[r.cid] = (data.winsBy[r.cid] || 0) + 1; data.heat = Math.min(HEAT_MAX, Math.max(data.heat, r.heat + 1)); } save(); },
+    patchLastRun(o){ const r = data.runs[0]; if (!r) return; data.life.kills += (o.kills ?? r.kills) - r.kills; data.life.time += (o.t ?? r.t) - r.t; Object.assign(r, o); save(); },
+    get life(){ return data.life; }, get winsBy(){ return data.winsBy; },
+    hasFeat: id => !!data.ach[id], featCount: () => Object.keys(data.ach).length,
+    grantFeat(id, dna){ if (data.ach[id]) return false; data.ach[id] = Date.now(); data.dna += dna; save(); return true; },
+    seen: (cat, k) => (data.seen[cat] || {})[k] || 0,
+    mergeSeen(s){ for (const c in s){ const D = data.seen[c] = data.seen[c] || {}; for (const k in s[c]) D[k] = (D[k] || 0) + s[c][k]; } save(); },
+    // wins from before Heat existed still unlock Heat 1
+    get heatMax(){ return Math.max(data.heat, data.best.wins > 0 ? 1 : 0); },
+    get heatSel(){ return Math.min(data.heatSel, this.heatMax); }, set heatSel(v){ data.heatSel = v; save(); },
     award(n, t, kills, win){ data.dna += n; data.best.t = Math.max(data.best.t, t); data.best.kills = Math.max(data.best.kills, kills); if (win) data.best.wins++; save(); },
   };
 })();

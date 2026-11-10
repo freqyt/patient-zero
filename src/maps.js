@@ -410,6 +410,10 @@ MAPS.desert = {
   gen(cx,cy){ return genThemed(this, cx, cy); },
 };
 MAP_ORDER.push('forest', 'docks', 'desert');
+// each map opens by doing something on the map before it (checked with the character tasks, twice a second)
+MAPS.forest.task = {map:'city',   k:'time', n:300, txt:'Survive until 5:00 in Downtown'};
+MAPS.docks.task  = {map:'forest', k:'boss', n:1,   txt:'Defeat a boss in Pine Hollow'};
+MAPS.desert.task = {map:'docks',  k:'boss', n:1,   txt:'Defeat a boss in The Docks'};
 if (!MAPS[MAP_ID]) MAP_ID = 'city';
 
 // ---------- map select overlay ----------
@@ -431,18 +435,21 @@ function mapPreview(id){
 let mapsReturn = 'chars', mapChar = null;
 const mapPrevCache = {};
 function openMaps(cid){
+  if (!META.hasMap(MAP_ID)) setMap('city');
   mapChar = cid; $('chars').classList.remove('show'); $('maps').classList.add('show'); renderMaps();
 }
 function closeMaps(){ $('maps').classList.remove('show'); $('chars').classList.add('show'); }
-function pickMap(id){ setMap(id); $('maps').classList.remove('show'); startGame(mapChar); }
+function pickMap(id){ if (!META.hasMap(id)) return; setMap(id); $('maps').classList.remove('show'); startGame(mapChar); }
 function renderMaps(){
   const el = $('mapGrid'); el.innerHTML = '';
   for (const id of MAP_ORDER){
     const M = MAPS[id], img = mapPrevCache[id] || (mapPrevCache[id] = mapPreview(id).toDataURL());
-    const b = document.createElement('button'); b.className = 'card map' + (id === MAP_ID ? ' sel' : '');
+    const open = META.hasMap(id), b = document.createElement('button'); b.className = 'card map' + (id === MAP_ID ? ' sel' : '') + (open ? '' : ' locked');
     const R = MAP_ROSTER[id], foes = R.bosses.map(k => VARIANTS[k] ? VARIANTS[k].n : BOSS_NAME[k]).join(', ');
-    b.innerHTML = `<img class="ic preview" src="${img}" alt=""><div class="nm">${M.n}</div><div class="ds">${M.d}</div><div class="ds hz">BOSSES: ${foes}</div>`;
-    b.onclick = () => { SFX.play('select'); pickMap(id); };
+    b.innerHTML = `<img class="ic preview" src="${img}" alt=""><div class="nm">${M.n}</div>` + (open
+      ? `<div class="ds">${M.d}</div><div class="ds hz">BOSSES: ${foes}</div>`
+      : `<div class="ds">LOCKED</div><div class="lv lock">${M.task.txt.toUpperCase()}</div>`);
+    b.onclick = () => { if (open){ SFX.play('select'); pickMap(id); } else SFX.play('click'); };
     el.appendChild(b);
   }
 }

@@ -40,14 +40,14 @@ Object.assign(ELITE, {camo:{c:'#6aa04a', n:'CAMOUFLAGED'}, thorns:{c:'#a0d040', 
   scorch:{c:'#ff7a2a', n:'SCORCHED'}, blink:{c:'#e0c8ff', n:'MIRAGE'}});
 function maybeElite(h){
   if (S.t < 50 || h.type === 'civ' || (h.V && h.V.noElite)) return;
-  if (Math.random() > Math.min(0.1, 0.02 + S.t/600*0.08)) return;
+  if (Math.random() > Math.min(0.1, 0.02 + S.t/600*0.08)*S.H.elite) return;
   const set = roster().elites, a = pick(Object.keys(set)); h.elite = a; h.eliteName = set[a];
   h.hp = h.maxHp = h.maxHp*3.5; h.xp *= 5; h.r = Math.round(h.r*1.15); h.dmgMul = 1.5;
   if (a === 'swift') h.sp *= 1.6;
   if (a === 'heavy'){ h.hp = h.maxHp = h.maxHp*1.4; h.r = Math.round(h.r*1.2); h.sp *= 0.85; }
 }
 function eliteDeath(h){
-  S.st.elites = (S.st.elites||0) + 1;
+  S.st.elites = (S.st.elites||0) + 1; seen('x', h.elite);
   if (Math.random() < 0.35 + 0.05*luck()){ spawnItem(pickItemType(), h.x, h.y); S.items[S.items.length-1].pop = 0.4; }
   if (h.elite === 'explosive') explode(h.x, h.y, 70, 18, 'human', null, 'elite');
   if (h.elite === 'oily'){ explode(h.x, h.y, 50, 12, 'human', 'fire', 'elite'); for (let i=0;i<7;i++){ const a = i/7*TAU; firePatch(h.x+Math.cos(a)*rand(14,40), h.y+Math.sin(a)*rand(10,28), rand(3,4.5)); } }

@@ -54,6 +54,13 @@ function checkUnlocks(win){
       if (S.state !== 'over'){ banner('UNLOCKED: ' + C.n, 'NEW CHARACTER IN THE SELECT SCREEN'); SFX.play('lucky'); }
     }
   }
+  for (const id of MAP_ORDER){
+    const T = MAPS[id].task; if (!T || T.map !== MAP_ID || META.hasMap(id)) continue;
+    if (done[T.k] >= T.n && META.unlockMap(id)){
+      (S.newChars = S.newChars || []).push('MAP: ' + MAPS[id].n);
+      if (S.state !== 'over'){ banner('NEW MAP: ' + MAPS[id].n, 'PICK IT AFTER CHOOSING YOUR CHARACTER'); SFX.play('lucky'); }
+    }
+  }
 }
 
 // character select overlay
@@ -66,6 +73,7 @@ function openChars(from){
 function closeChars(){ $('chars').classList.remove('show'); refreshTitleDna(); $(charsReturn).classList.add('show'); }
 function pickChar(id){ selChar = id; try { localStorage.setItem('pz-char', id); } catch (e) {} openMaps(id); }
 function renderChars(){
+  renderHeat();
   const el = $('charGrid'); el.innerHTML = '';
   for (const id of CHAR_ORDER){
     const C = CHARS[id], open = META.hasChar(id);
