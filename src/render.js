@@ -440,7 +440,7 @@ function lighting(nt){
       const eyes = (e, col, big) => { const d = dirOf(e.face); if (d===1) return; const x = sx(e.x), y = sy(e.y) - (big ? 22 : 17);
         band(lg, col, x + (d===2?2:d===3?-2:0), y, big?6:3, nt*0.8); };
       for (const m of S.minions) if (m.rise <= 0) eyes(m, BAND.yellow, false);
-      eyes(S.player, S.player.frenzy>0 ? BAND.red : BAND.toxic, true);
+      eyes(S.player, BAND.toxic, true);
       if (L('horde') >= 4) band(lg, BAND.pink, sx(S.player.x), sy(S.player.y) - 30, 9, 0.35 + 0.15*Math.sin(S.t*4));
     }
   }

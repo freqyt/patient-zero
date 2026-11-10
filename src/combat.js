@@ -108,15 +108,6 @@ function explode(x,y,r,dmg,side,style,src){
     if (d2(S.player,{x,y}) < (r+S.player.r)**2) hurtPlayer(dmg, src||'shell');
   }
 }
-function devour(){
-  const p = S.player; if (p.devourCd > 0) return;
-  let best = null, bd = 120*120;
-  for (const m of S.minions){ if (m.rise>0) continue; const d = d2(p,m); if (d<bd){ bd=d; best=m; } }
-  if (!best){ floatText(p.x,p.y,'NO MINION','#a09aa8'); return; }
-  best.hp = 0; FX.blood(best.x,best.y,14,true);
-  SFX.play('devour'); S.st.devours++; heal(22 + p.maxHp*0.08, 'devour'); p.frenzy = 3.5; p.devourCd = 5;
-  floatText(p.x,p.y,'FRENZY!','#ff5a5a');
-}
 function hfire(h, ang, spd, dmg, opts){
   const ox = h.x+Math.cos(ang)*h.r*1.4, oy = h.y+Math.sin(ang)*h.r*1.4;
   const b = Object.assign({x:ox, y:oy, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd, spd, dmg:dmg*(h.dmgMul||1), t:1.6, r:3, src:h.type}, opts||{});

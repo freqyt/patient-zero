@@ -22,10 +22,10 @@ function startGame(cid){
   const hp = 100 + 10*META.rank('flesh') + (CH.hp || 0);
   S = {
     t:0, state:'play',
-    player:{x:0,y:40,r:12,hp,maxHp:hp,biteCd:0,biteT:0,biteA:0,face:Math.PI/2,flash:0,frenzy:0,devourCd:0,moving:false,saw:0},
+    player:{x:0,y:40,r:12,hp,maxHp:hp,biteCd:0,biteT:0,biteA:0,face:Math.PI/2,flash:0,moving:false,saw:0},
     humans:[], minions:[], corpses:[], bodies:[], pb:[], hb:[], gems:[], parts:[], pools:[], texts:[], lights:[], items:[], itemT:4, flashT:0,
     kills:0, bonusDna:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:Object.assign({}, CH.start), evo:{}, gotAt:Object.fromEntries(Object.keys(CH.start).map(k => [k, 0])), ch:CH, cid, luckBonus:CH.luck || 0, newChars:[],
-    st:{dmg:{}, kills:{}, heal:{}, taken:{}, risen:0, lost:0, devours:0, crates:0, items:{}, sawTime:0}, rerolls:3 + META.rank('reroll') + (CH.rerolls || 0), spawnAcc:0, shake:0,
+    st:{dmg:{}, kills:{}, heal:{}, taken:{}, risen:0, lost:0, crates:0, items:{}, sawTime:0}, rerolls:3 + META.rank('reroll') + (CH.rerolls || 0), spawnAcc:0, shake:0,
     wt:{spit:0,spikes:1.5,screech:2,trail:0}, banner:null, crowd:null, nextCrowd:14,
     plan:makeSpawnPlan(), bossPlan:shuffle(BOSS_POOL.slice()).slice(0,2), mines:[], cures:[], bosses:{}, maxHorde:0, wasNight:false, finalWave:false, winT:0, hazT:0, overtime:false,
   };

@@ -14,7 +14,7 @@ const FEATS = [
   {id:'boss2',    n:'BOSS RUSH',        d:'Defeat both mid-game bosses in one run.',   dna:50,  t:r => r.boss >= 2},
   {id:'lvl50',    n:'OVERGROWN',        d:'Reach level 50.',                           dna:40,  t:r => r.level >= 50},
   {id:'clean',    n:'UNTOUCHABLE',      d:'Take no damage for the first 2:00.',        dna:40,  t:r => r.clean >= 120},
-  {id:'devour25', n:'CANNIBAL',         d:'Devour 25 of your own minions in one run.', dna:25,  t:r => r.devours >= 25},
+  {id:'risen300', n:'NECROMANCER',      d:'Raise 300 zombies in one run.',             dna:25,  t:r => r.risen >= 300},
   {id:'elite10',  n:'TROPHY HUNTER',    d:'Slay 10 elites in one run.',                dna:35,  t:r => r.elites >= 10},
   {id:'crate20',  n:'LOOTER',           d:'Smash 20 crates in one run.',               dna:25,  t:r => r.crates >= 20},
   {id:'luck10',   n:'FOUR-LEAF ROT',    d:'Reach 10 luck.',                            dna:35,  t:r => r.luck >= 10},
@@ -30,7 +30,7 @@ const FEATS = [
 ];
 function checkFeats(win){
   const r = {kills:S.kills, t:S.t, win:win || !!S.won, level:S.level, evo:Object.keys(S.evo).length, horde:S.maxHorde, boss:S.st.bossKills || 0,
-    devours:S.st.devours, elites:S.st.elites || 0, crates:S.st.crates, luck:luck(), curse:curse(), heat:S.heat,
+    risen:S.st.risen, elites:S.st.elites || 0, crates:S.st.crates, luck:luck(), curse:curse(), heat:S.heat,
     wave:S.endless ? S.endless.wave : 0, clean:S.firstHit === null ? S.t : S.firstHit};
   const got = [];
   for (const F of FEATS) if (!META.hasFeat(F.id) && F.t(r) && META.grantFeat(F.id, F.dna)) got.push(F);

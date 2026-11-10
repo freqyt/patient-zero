@@ -2,8 +2,8 @@
 
 A 16-bit style zombie survivors game: you are the outbreak. Every human you kill may rise and join your horde, keeping their gear.
 
-- Desktop: WASD/arrows to move, E/Shift devours a minion, P/Esc pauses.
-- Mobile: drag anywhere to move, tap EAT to devour a minion.
+- Desktop: WASD/arrows to move, P/Esc pauses.
+- Mobile: drag anywhere to move, tap II to pause.
 
 Loot crates spawn on screen; smash them (your attacks and horde target them) for a random pickup: Fresh Heart (heal), Magnet (pulls every brain on the map), Bone Gatling (8s of rapid piercing bone fire), Biohazard (wipes every human on screen, drops no new brains).
 

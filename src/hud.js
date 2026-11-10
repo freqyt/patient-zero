@@ -19,18 +19,41 @@ function edgeArrow(tx,ty,col,size=6){
   for (let i=0;i<size;i++){ const bx = ax - Math.round(Math.cos(a)*i), by = ay - Math.round(Math.sin(a)*i), w = Math.floor(i*0.8);
     for (let j=-w;j<=w;j++) lg.fillRect(bx + Math.round(-Math.sin(a)*j), by + Math.round(Math.cos(a)*j), 1, 1); }
 }
+// HP bar floating over Patient Zero: only while hurt, fading out for a moment once back to full
+function drawPlayerHp(p){
+  const f = p.hp/p.maxHp, U = S.hpUi || (S.hpUi = {full:-9});
+  if (f < 1) U.full = S.t;
+  const a = clamp(1 - (S.t - U.full)/0.6, 0, 1); if (a <= 0) return;
+  const w = 22, x = sx(p.x) - (w>>1), y = sy(p.y) - 33, low = f < 0.3, blink = low && (S.t*4|0)%2;
+  lg.globalAlpha = a;
+  lg.fillStyle = '#170d1c'; lg.fillRect(x-1, y-1, w+2, 4);
+  lg.fillStyle = '#4a1a24'; lg.fillRect(x, y, w, 2);
+  const fw = Math.max(f > 0 ? 1 : 0, Math.round(w*f));
+  lg.fillStyle = blink ? '#ffd0d0' : '#e0283a'; lg.fillRect(x, y, fw, 2);
+  lg.fillStyle = blink ? '#ffffff' : '#ff8a8a'; lg.fillRect(x, y, fw, 1);
+  lg.globalAlpha = 1;
+}
+// horde: a big count that pops green when a zombie rises and red when one falls, over one pip per horde slot
+function drawHorde(){
+  const n = hordeCount(), cap = hordeCap(), U = S.hordeUi || (S.hordeUi = {n, at:-9, col:'#e8ffb0'});
+  if (n !== U.n){ U.col = n > U.n ? '#e8ffb0' : '#ff6a6a'; U.n = n; U.at = S.t; }
+  const pop = clamp(1 - (S.t - U.at)/0.4, 0, 1), full = n >= cap;
+  const seg = clamp(Math.floor(78/cap) - 1, 1, 4), pw = cap*(seg+1) - 1, w = Math.max(50, pw + 8);
+  win(3, 6, w, 22);
+  lg.drawImage(ICON.zed, 7, 9 - (pop > 0.6 ? 1 : 0));
+  const num = String(n), col = pop > 0 ? U.col : full ? '#ffe070' : '#c8ff7a';
+  ptext(lg, num, 18, 8 - (pop > 0.6 ? 1 : 0), col, {scale:2, shadow:'#170d1c'});
+  ptext(lg, '/' + cap, 18 + textW(num, 2) + 2, 12, full ? '#c8a048' : '#7a8a6a');
+  for (let i=0;i<cap;i++){ const x = 7 + i*(seg+1);
+    lg.fillStyle = i < n ? (full ? ((S.t*2 + i*0.08)%1 < 0.85 ? '#ffe070' : '#fff8d0') : i === n-1 && pop > 0 ? U.col : '#7acc2a') : '#2e2638'; lg.fillRect(x, 23, seg, 2); }
+}
 function drawHUD(nt){
   const p = S.player;
   lg.fillStyle = '#0c0810'; lg.fillRect(0,0,LW,3);
   lg.fillStyle = '#c84a8a'; lg.fillRect(0,0,Math.round(LW*clamp(S.xp/S.xpNext,0,1)),2); lg.fillStyle = '#ff9ccc'; lg.fillRect(0,0,Math.round(LW*clamp(S.xp/S.xpNext,0,1)),1);
 
-  win(3,6,104,38);
-  lg.drawImage(ICON.heart, 7, 11); pbar(17,12,54,4,p.hp/p.maxHp,'#ff7a7a','#c8283a');
-  ptext(lg, Math.ceil(p.hp), 75, 10, '#f0e8e0');
-  lg.drawImage(ICON.zed, 7, 21); const cap = hordeCap(); pbar(17,22,54,4,S.minions.length/cap,'#c8ff7a','#4e9a16');
-  ptext(lg, `${S.minions.length}/${cap}`, 75, 20, '#c8ff7a');
-  const dr = p.devourCd <= 0;
-  ptext(lg, 'EAT', 7, 32, dr ? '#ff7a7a' : '#6a5a6a'); pbar(28,34,74,3, dr ? 1 : 1-p.devourCd/5, '#ff9a9a', dr?'#e03a4a':'#6a3a44');
+  drawPlayerHp(p);
+  drawHorde();
 
   const narrow = LW < 300, tcx = narrow ? 55 : Math.round(LW/2), tcy = narrow ? 48 : 6;
   const rem = Math.max(0, GAME_LEN - S.t), mm = Math.floor(rem/60), ss = String(Math.floor(rem%60)).padStart(2,'0');
@@ -70,7 +93,7 @@ function drawHUD(nt){
       ptext(lg, shown, LW/2 - textW(b.text,sc)/2, y-2, '#c8ff7a', {shadow:'#170d1c', scale:sc});
       if (el > 0.6) ptext(lg, b.sub, LW/2, y+(sc===2?15:8), '#e8e0d0', {align:'center', shadow:'#170d1c'}); } }
 
-  if (p.saw > 0){ win(3,46,104,12); ptext(lg, 'GAT', 7, 49, (S.t*8|0)%2 ? '#ece4c8' : '#fff4c0'); pbar(28,51,74,3,p.saw/8,'#fff4c0','#b0a688'); }
+  if (p.saw > 0){ win(3,30,82,12); ptext(lg, 'GAT', 7, 33, (S.t*8|0)%2 ? '#ece4c8' : '#fff4c0'); pbar(28,35,52,3,p.saw/8,'#fff4c0','#b0a688'); }
   // boss chests get a big blinking gold arrow; other pickups a small coloured one
   for (const it of S.items){ if (it.k === 'chest') edgeArrow(it.x, it.y, (S.t*4|0)%2 ? '#ffe070' : '#ff9a20', 11); else edgeArrow(it.x, it.y, ITEM_COL[it.k]); }
   for (const h of S.humans) if (h.type==='crate') edgeArrow(h.x, h.y, '#d8a860');

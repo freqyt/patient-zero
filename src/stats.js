@@ -6,7 +6,7 @@ const SRC_INFO = {
   minion:{n:'Your Horde', ic:'🧟'}, boom:{mut:'boom'}, bloater:{n:'Bloaters', ic:'🔥'}, hazard:{n:'Fuel Explosions', ic:'⛽'},
   saw:{n:'Bone Gatling', ic:'💀'}, wisps:{mut:'wisps'}, wave:{mut:'wave'}, bloom:{mut:'bloom'}, beam:{mut:'beam'}, hbone:{n:'Bone Squad', ic:'🦴'}, gat:{n:'Bone Gatling', ic:'💀'}, lash:{mut:'lash'}, spores:{mut:'spores'}, elite:{n:'Elite blasts', ic:'💥'}, bomb:{n:'Biohazard', ic:'☣️'}, nova:{evo:'aura'}, acid:{evo:'spit'}, other:{n:'Other', ic:'❔'},
 };
-const HEAL_INFO = {hide:['Necrotic Hide','🛡️'], hunger:['Ravenous','🍖'], devour:['Devour','🧟'], heart:['Fresh Hearts','🫀'], chest:['Boss Chests','🎁'],
+const HEAL_INFO = {hide:['Necrotic Hide','🛡️'], hunger:['Ravenous','🍖'], heart:['Fresh Hearts','🫀'], chest:['Boss Chests','🎁'],
   feast:['Feast','🩸'], regen:['Natural Regen','💚'], leech:['Blood Leech','🩸'], lash:['Blood Whip','🐙'], chitin:['Chitin (blocked)','🐚'], boss:['Boss Kills','💀'], other:['Other','❔']};
 const TAKEN_INFO = {beat:['Baton Cops','👮'], cop:['Pistol Cops','🔫'], soldier:['Soldiers','🪖'], riot:['Riot Police','🛡️'], flamer:['Flamethrowers','🔥'],
   apc:['Armored Carrier','🚛'], heli:['Gunship','🚁'], shell:['Shells','💣'], dog:['K9 Units','🐕'], grenadier:['Grenadiers','💣'], sniper:['Snipers','🎯'], swat:['SWAT Van','🚓'], jugg:['Juggernaut','🦾'], cure:['The Cure','💉'], elite:['Volatile Elites','💥'], other:['Other','❔']};
@@ -46,7 +46,7 @@ function statsHTML(){
   const evos = Object.keys(S.evo).map(k => EVOS[k].n).join(', ') || 'none';
   const misc = `<div class="sect"><div class="sh">THE OUTBREAK</div><div class="misc">
     <span>Zombies raised <b>${st.risen}</b></span><span>Horde lost <b>${st.lost}</b></span><span>Biggest horde <b>${S.maxHorde}</b></span>
-    <span>Minions devoured <b>${st.devours}</b></span><span>Crates smashed <b>${st.crates}</b></span><span>Elites slain <b>${st.elites||0}</b></span><span>Luck <b>${luck()}</b></span><span>Curse <b>${curse()}</b></span><span>Attack speed <b>+${Math.round((AS()-1)*100)}%</b></span><span>Total damage <b>${fmtN(totalD)}</b></span>
+    <span>Crates smashed <b>${st.crates}</b></span><span>Elites slain <b>${st.elites||0}</b></span><span>Luck <b>${luck()}</b></span><span>Curse <b>${curse()}</b></span><span>Attack speed <b>+${Math.round((AS()-1)*100)}%</b></span><span>Total damage <b>${fmtN(totalD)}</b></span>
     <span class="wide">Items: <b>${items}</b></span><span class="wide">Evolutions: <b>${evos}</b></span></div></div>`;
   return section('DAMAGE DEALT', dRows, 'No damage dealt.') + section('HEALING', hRows, 'No healing.') + section('DAMAGE TAKEN', tRows, 'Untouched!') + misc;
 }

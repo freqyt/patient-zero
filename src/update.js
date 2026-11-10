@@ -25,9 +25,9 @@ function update(dt){
   S.wasNight = isNight;
   const bossAlive = S.humans.some(h => h.boss && !h.dead);
   MUSIC.setMode(S.humans.some(h => h.type==='heli') ? 'final' : bossAlive ? 'boss' : isNight ? 'night' : 'day');
-  { // music reacts to the fight: how many threats are on screen, frenzy/chainsaw, low health, and time
+  { // music reacts to the fight: how many threats are on screen, Bone Gatling, low health, and time
     let near = 0; for (const h of S.humans) if (isTarget(h) && Math.abs(h.x-p.x) < VW/2 && Math.abs(h.y-p.y) < VH/2) near++;
-    MUSIC.setMood(near/35 + (p.frenzy > 0 || p.saw > 0 ? 0.3 : 0), p.hp/p.maxHp < 0.3, Math.min(4, Math.floor(S.t/150))); }
+    MUSIC.setMood(near/35 + (p.saw > 0 ? 0.3 : 0), p.hp/p.maxHp < 0.3, Math.min(4, Math.floor(S.t/150))); }
   if (S.winT > 0){ S.winT -= dt; if (S.winT <= 0){ gameOver(true); return; } }
 
   // player movement (keyboard or touch stick)
@@ -36,9 +36,9 @@ function update(dt){
   const ml = Math.hypot(mx,my);
   p.moving = ml > 0.05;
   if (p.moving){ const k = Math.min(1, ml); mx /= ml; my /= ml;
-    const spd = 160*GS*(S.ch.spd||1)*(1+0.1*L('legs'))*(E('trail')?1.15:1)*(1+0.2*nt)*(p.frenzy>0?1.4:1)*k;
+    const spd = 160*GS*(S.ch.spd||1)*(1+0.1*L('legs'))*(E('trail')?1.15:1)*(1+0.2*nt)*k;
     p.x += mx*spd*dt; p.y += my*spd*dt; p.face = Math.atan2(my,mx); }
-  p.frenzy -= dt; p.devourCd -= dt; p.flash -= dt; p.biteT -= dt;
+  p.flash -= dt; p.biteT -= dt;
   if (L('hide')) heal(0.4*L('hide')*dt, 'hide');
   if (S.ch.regen) heal(S.ch.regen*dt, 'regen');
   S.unlockT = (S.unlockT || 0) - dt; if (S.unlockT <= 0){ S.unlockT = 0.5; checkUnlocks(false); }
@@ -48,8 +48,8 @@ function update(dt){
   if (p.biteCd <= 0){
     const reach = 18 + 6*L('jaws'); let tgt = null, bd = 1e9;
     for (const h of S.humans){ if (h.dead || h.air) continue; const d = Math.sqrt(d2(p,h))-h.r-p.r; if (d<reach && d<bd){ bd=d; tgt=h; } }
-    if (tgt){ const dmg = 20*(S.ch.bite||1)*(1+0.3*L('jaws'))*(p.frenzy>0?2:1)*(1+0.3*nt)*(1+0.04*(S.level-1));
-      SFX.play('bite'); dmgHuman(tgt, crit(tgt, dmg), 'bite'); p.biteCd = (p.frenzy>0 ? 0.28 : 0.45)/AS(); p.biteT = 0.12; p.biteA = Math.atan2(tgt.y-p.y, tgt.x-p.x); }
+    if (tgt){ const dmg = 20*(S.ch.bite||1)*(1+0.3*L('jaws'))*(1+0.3*nt)*(1+0.04*(S.level-1));
+      SFX.play('bite'); dmgHuman(tgt, crit(tgt, dmg), 'bite'); p.biteCd = 0.45/AS(); p.biteT = 0.12; p.biteA = Math.atan2(tgt.y-p.y, tgt.x-p.x); }
   }
 
   // mutations: attacks only fire at targets on screen AND within range; otherwise they stay charged

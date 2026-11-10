@@ -12,7 +12,6 @@ addEventListener('keydown', e => {
   if ($('chars').classList.contains('show')){ if (k==='escape') closeChars(); if (k==='enter') pickChar(selChar); return; }
   if (!S){ if (k==='enter' || k===' ') openChars('title'); return; }
   if (S.state==='play'){
-    if (k==='e' || k==='shift') devour();
     if (k==='p' || k==='escape') setState('pause');
   } else if (S.state==='pause'){ if (k==='p' || k==='escape') setState('play'); }
   else if (S.state==='level'){ if (k>='1' && k<='5'){ const c = $('cards').children[+k-1]; if (c) c.click(); } if (k==='r') rerollLevel(); }
@@ -24,7 +23,6 @@ addEventListener('blur', () => { for (const k in K) K[k] = false; resetStick(); 
 // ---------- input: touch (virtual stick + buttons) ----------
 const touch = {used:false, stick:null, id:null, ox:0, oy:0};
 function lowXY(e){ return [e.clientX*DPR/SCALE, e.clientY*DPR/SCALE]; }
-function touchButtons(){ return [{id:'eat', x:LW-26, y:LH-34, r:17, label:'EAT'}]; }
 cv.addEventListener('pointerdown', e => {
   // the pause button works for mouse and touch alike (generous hit area for thumbs)
   if (S && S.state === 'play'){ const [x, y] = lowXY(e), b = PAUSE_BTN();
@@ -33,7 +31,6 @@ cv.addEventListener('pointerdown', e => {
   touch.used = true; e.preventDefault();
   if (!S || S.state!=='play') return;
   const [x,y] = lowXY(e);
-  for (const b of touchButtons()) if (Math.hypot(x-b.x, y-b.y) < b.r+6){ if (b.id==='snd') SFX.toggle(); else devour(); return; }
   // always hand the stick to the newest finger, so a lost "finger up" event can never leave it stuck
   touch.id = e.pointerId; touch.ox = x; touch.oy = y; touch.stick = {dx:0, dy:0};
   try { cv.setPointerCapture(e.pointerId); } catch (err) {}
@@ -58,8 +55,4 @@ function drawTouchUI(){
     lg.globalAlpha = 0.5; lg.fillStyle = '#e0d8f0';
     const n = 40; for (let i=0;i<n;i++){ const a = i/n*TAU; lg.fillRect(Math.round(x+Math.cos(a)*22), Math.round(y+Math.sin(a)*22), 1, 1); }
     pcirc(lg, Math.round(x+touch.stick.dx*22), Math.round(y+touch.stick.dy*22), 7, '#e0d8f0'); lg.globalAlpha = 1; }
-  for (const b of touchButtons()){
-    lg.globalAlpha = 0.65; pcirc(lg, b.x, b.y, b.r, '#170d1c'); pcirc(lg, b.x, b.y, b.r-1, b.id==='eat' ? '#6a1a2a' : '#1a3a5a'); lg.globalAlpha = 1;
-    ptext(lg, b.label, b.x, b.y-3, '#f0e8e0', {align:'center'});
-  }
 }
