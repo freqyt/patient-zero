@@ -418,7 +418,7 @@ function update(dt){
   if (!isNight && S.wasNight){ SFX.play('dawn'); banner('DAWN', 'THE LIVING REGROUP'); }
   S.wasNight = isNight;
   const bossAlive = S.humans.some(h => h.boss && !h.dead);
-  MUSIC.setMode(bossAlive ? 'boss' : isNight ? 'night' : 'day');
+  MUSIC.setMode(S.humans.some(h => h.type==='heli') ? 'final' : bossAlive ? 'boss' : isNight ? 'night' : 'day');
   { // music reacts to the fight: how many threats are on screen, frenzy/chainsaw, low health, and time
     let near = 0; for (const h of S.humans) if (isTarget(h) && Math.abs(h.x-p.x) < VW/2 && Math.abs(h.y-p.y) < VH/2) near++;
     MUSIC.setMood(near/35 + (p.frenzy > 0 || p.saw > 0 ? 0.3 : 0), p.hp/p.maxHp < 0.3, Math.min(4, Math.floor(S.t/150))); }
