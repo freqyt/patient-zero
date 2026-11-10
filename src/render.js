@@ -42,12 +42,41 @@ const BONES = [0,1,2,3].map(i => outline((() => { const c = mk(9,9), g = c.getCo
   if (i===2){ g.fillRect(4,2,1,5); g.fillRect(3,1,3,1); g.fillRect(3,7,3,1); }
   if (i===3){ for (let k=0;k<4;k++) g.fillRect(2+k,2+k,1,1); g.fillRect(1,2,2,1); g.fillRect(6,6,2,1); g.fillRect(1,1,1,1); g.fillRect(7,7,1,1); }
   return c; })(), '#3a2e24'));
-function brainSpr(big){ return outline((() => { const w = big?10:7, h = big?8:6, c = mk(w+2,h+2), g = c.getContext('2d');
-  g.fillStyle = '#e87aa8'; g.fillRect(2,1,w-2,h); g.fillRect(1,2,w,h-2);
-  g.fillStyle = '#ffb8d4'; g.fillRect(2,2,2,1); if (big) g.fillRect(6,2,2,1);
-  g.fillStyle = '#a8406e'; g.fillRect(Math.floor(w/2)+1,1,1,h); if (big){ g.fillRect(3,5,2,1); g.fillRect(7,4,2,1); }
-  return c; })(), '#4a1630'); }
-const BRAIN_S = brainSpr(false), BRAIN_L = brainSpr(true);
+// side-view brains: wrinkled cerebrum, cerebellum tucked under the back, a stub of brain stem
+const BRAIN_PAL = {L:'#ffd0e2', M:'#f08ab4', m:'#d8709c', D:'#b04878', F:'#7a2450', C:'#c85a88', S:'#e0909a'};
+function brainSpr(rows){ const c = mk(rows[0].length+2, rows.length+2); c.getContext('2d').drawImage(pixIcon(rows, BRAIN_PAL), 1, 1); return outline(c, '#3e1028'); }
+const BRAIN_S = brainSpr([
+  '..MMMMMM..',
+  '.MLLMFMMM.',
+  'MLMFMMFMMm',
+  'MMFMMFMFMm',
+  'mMMFMmMMFD',
+  '.DmMMDCCD.',
+  '..DD.SCC..',
+  '.....S....']);
+const BRAIN_L = brainSpr([
+  '...MMMMMMM...',
+  '.MMLLMMFMMMM.',
+  'MLLMFFMMFFMMm',
+  'MLMMMMFMMMFMm',
+  'MMFFMFMMFMMmD',
+  'MMMMFMMFFMMFD',
+  'mMFMMmMMMmMDD',
+  '.DmMMDmDCCCD.',
+  '..DDD..SCCC..',
+  '.......SS....']);
+// living details on Patient Zero that a static sprite can't show
+function drawPlayerFx(p){
+  const x = sx(p.x), y = sy(p.y), t = S.t;
+  if (L('aura')){ lg.fillStyle = '#100810';   // flies buzzing around the rot
+    for (let i=0;i<2+L('aura');i++){ const a = t*(3+i*0.7) + i*2.1, r = 7 + (i%3)*3;
+      lg.fillRect(x + Math.round(Math.cos(a)*r), y - 14 + Math.round(Math.sin(a*1.3)*r*0.6), 1, 1); } }
+  if (L('trail') && p.moving && Math.random() < 0.3 + 0.1*L('trail'))
+    S.parts.push({k:'drop', x:p.x+rand(-6,6), y:p.y, vx:0, vy:0, z:6, vz:0, t:.3, max:.3, col:'#6abf1f'});
+  if (L('spit') >= 3 && Math.random() < 0.05*L('spit'))
+    S.parts.push({k:'drop', x:p.x+Math.cos(p.face)*4, y:p.y, vx:0, vy:0, z:22, vz:0, t:.4, max:.4, col:'#9be03a'});
+  if (L('boom') >= 2 && (t*4|0)%3===0){ lg.fillStyle = '#ffd060'; lg.fillRect(x + ((t*13|0)%5) - 2, y - 13 - ((t*7|0)%4), 1, 1); }
+}
 const ICON = {};
 function pixIcon(rows, cols){ const h = rows.length, w = rows[0].length, c = mk(w,h), g = c.getContext('2d');
   rows.forEach((r,y) => { for (let x=0;x<w;x++){ const ch = r[x]; if (ch!=='.'){ g.fillStyle = cols[ch]; g.fillRect(x,y,1,1); } } }); return c; }
@@ -154,11 +183,12 @@ function trackWalk(e){
 function drawChar(e, L, pose, flash, rise){
   const d = dirOf(e.face), step = e.moving ? [0,1,0,2][((e.walk||0)/5|0)%4] : 0;
   const spr = charSprite(L, d===3 ? 2 : d, step, pose, flash);
-  const x = sx(e.x), y = sy(e.y);
-  let h = 28, top = 0;
-  if (rise !== undefined && rise < 1){ h = Math.max(1, Math.round(26*rise)); }
-  if (d===3){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(spr, 0, 0, 24, h, -12, y-h+(h===28?2:0), 24, h); lg.restore(); }
-  else lg.drawImage(spr, 0, 0, 24, h, x-12, y-h+(h===28?2:0), 24, h);
+  const x = sx(e.x), y = sy(e.y), w = spr.width, hw = w >> 1;
+  // sprites are anchored 2 rows above their bottom edge (feet); rising corpses reveal from the top down
+  let h = spr.height, top = y - spr.height + 2;
+  if (rise !== undefined && rise < 1){ h = Math.max(1, Math.round((spr.height-2)*rise)); top = y - h; }
+  if (d===3){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(spr, 0, 0, w, h, -hw, top, w, h); lg.restore(); }
+  else lg.drawImage(spr, 0, 0, w, h, x-hw, top, w, h);
 }
 function humanPose(h){ return h.type==='civ' ? (h.panic>0 ? 'panic' : 'walk') : h.type==='riot' ? 'shield' : 'aim'; }
 function drawAPC(h){
@@ -296,7 +326,8 @@ function drawSorted(){
       if ((S.t*10|0)%2) { lg.fillStyle = '#b7ff4a'; lg.fillRect(x+rand(-6,6)|0, y-2-(k*6|0), 1, 1); }
       if (Math.random() < 0.15) FX.bubble(o.x+rand(-10,10), o.y); }
     else if (kind===6){ const pl = o;
-      drawChar(pl, PLAYER_LOOK, 'reach', pl.flash > 0);
+      drawChar(pl, playerLook(S.mods), 'reach', pl.flash > 0);
+      drawPlayerFx(pl);
       if (pl.biteT > 0){ const a = pl.biteA, x = sx(pl.x) + Math.round(Math.cos(a)*10), y = sy(pl.y) - 14 + Math.round(Math.sin(a)*6);
         lg.fillStyle = '#f0ecdc'; for (let i=-2;i<=2;i++){ lg.fillRect(x+i*2, y-3, 1, 2); lg.fillRect(x+i*2, y+2, 1, 2); } } }
   }
@@ -375,10 +406,11 @@ function lighting(nt){
         lg.fillRect(x-Math.round(b.vx/b.spd*2), y-12-Math.round(b.vy/b.spd*1.4), 1, 1); }
     }
     if (nt > 0.05){
-      const eyes = (e, col, big) => { const d = dirOf(e.face); if (d===1) return; const x = sx(e.x), y = sy(e.y) - 18;
-        band(lg, col, x + (d===2?2:d===3?-2:0), y, big?6:4, nt*0.8); };
-      for (const m of S.minions) if (m.rise <= 0) eyes(m, BAND.toxic, false);
+      const eyes = (e, col, big) => { const d = dirOf(e.face); if (d===1) return; const x = sx(e.x), y = sy(e.y) - (big ? 22 : 17);
+        band(lg, col, x + (d===2?2:d===3?-2:0), y, big?6:3, nt*0.8); };
+      for (const m of S.minions) if (m.rise <= 0) eyes(m, BAND.yellow, false);
       eyes(S.player, S.player.frenzy>0 ? BAND.red : BAND.toxic, true);
+      if (L('horde') >= 4) band(lg, BAND.pink, sx(S.player.x), sy(S.player.y) - 30, 9, 0.35 + 0.15*Math.sin(S.t*4));
     }
   }
   lg.globalAlpha = 1; lg.globalCompositeOperation = 'source-over';
@@ -450,10 +482,14 @@ function drawHUD(nt){
     ptext(lg, 'ARMORED CARRIER', LW/2, by-9, '#ff8a7a', {align:'center', shadow:'#170d1c'});
     pbar(bx, by, bw, 3, boss.hp/boss.maxHp, '#ffa080', '#d02828'); }
 
-  const ks = Object.keys(S.mods), gap = 20, tot = ks.length*gap - 2;
-  ks.forEach((k,i) => { const x = Math.round(LW/2 - tot/2 + i*gap), y = LH - 26;
-    lg.drawImage(mutIcon(k), x, y);
-    for (let j=0;j<MAXLV;j++){ lg.fillStyle = j < S.mods[k] ? '#9be03a' : '#3a2e44'; lg.fillRect(x+1+j*3+ (j>0?0:0), y+19, 2, 2); } });
+  // mutation slots: owned icons with level pips, then empty frames up to the cap
+  const ks = Object.keys(S.mods), gap = 21, tot = MAX_SLOTS*gap - 3;
+  for (let i=0;i<MAX_SLOTS;i++){ const x = Math.round(LW/2 - tot/2 + i*gap), y = LH - 27;
+    lg.fillStyle = 'rgba(18,10,26,.7)'; lg.fillRect(x, y, 18, 18); lg.fillStyle = i < ks.length ? '#7a6a8a' : '#3a2e44';
+    lg.fillRect(x, y, 18, 1); lg.fillRect(x, y+17, 18, 1); lg.fillRect(x, y, 1, 18); lg.fillRect(x+17, y, 1, 18);
+    if (i >= ks.length) continue;
+    const k = ks[i]; lg.drawImage(mutIcon(k), x, y);
+    for (let j=0;j<MAXLV;j++){ lg.fillStyle = j < S.mods[k] ? '#9be03a' : '#3a2e44'; lg.fillRect(x+2+j*3, y+20, 2, 2); } }
 
   if (S.banner){ const b = S.banner, el = 3.2 - b.t;
     if (el > 0.08 || (S.t*20|0)%2){ const y = Math.round(LH*0.28), sc = textW(b.text,2) < LW-16 ? 2 : 1;

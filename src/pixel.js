@@ -80,7 +80,8 @@ const SKINS = ['#f2c9a0','#dda77c','#b9825a','#8a5a3c','#5e3c28'];
 const HAIRS = ['#2a1a14','#4a2e1e','#8a5a2a','#d8b46a','#1a1418','#7a2a1a','#9a9aa0','#3a2a4a'];
 const SHIRTS = ['#b0303a','#3a5aa8','#d8b048','#4e8a46','#8a4aa0','#d87a30','#e0dccc','#46464e','#2a8a8a','#c85a8a','#7a5a3a','#5a7ab8'];
 const PANTS = ['#2e3a5a','#4a3a2a','#2a2a30','#5a5a64','#3a4a36','#6a5a44'];
-const ZSKINS = ['#a8c46a','#8fb05a','#9cb07a','#b4c080','#86a862'];
+// horde: grey-teal corpse pallor, clearly duller than Patient Zero's toxic green
+const ZSKINS = ['#8c9c94','#7e928c','#98a49a','#86948e','#7a8a90'];
 let LOOKID = 0;
 function baseLook(type){
   const L = {id: ++LOOKID, type, skin: shades(pick(SKINS)), hair: shades(pick(HAIRS)), style: Math.random()*3|0,
@@ -101,21 +102,105 @@ function zombieLook(L){
   Z = Object.assign({}, L, {id: ++LOOKID, zombie:true, skin: shades(pick(ZSKINS)), shirt: shades(shadeHex(L.shirt[1],-0.25)),
     pants: shades(shadeHex(L.pants[1],-0.2)), hair: shades(shadeHex(L.hair[1],-0.2)), pose:'reach', shield:false, weapon:null,
     bloat: L.type==='flamer', tank:false,
-    blood: [[rand(-3,2)|0, rand(0,5)|0],[rand(-3,2)|0, rand(0,5)|0],[rand(-3,2)|0, rand(0,5)|0]]});
+    blood: [[rand(-3,2)|0, rand(0,5)|0],[rand(-3,2)|0, rand(0,5)|0],[rand(-3,2)|0, rand(0,5)|0]],
+    rowOps: {del:[20,25], delCol:12}});   // horde is 2px shorter and 1px narrower than the player
   ZLOOK.set(L.id, Z); return Z;
 }
-const PLAYER_LOOK = {id: ++LOOKID, type:'player', player:true, zombie:true, skin: shades('#a6c072'), hair: shades('#2a1a14'), style:2,
-  shirt: shades('#c4d8e0'), pants: shades('#a6c072'), shoe:'#7d9a4e', gear:'brain', gown:true, pose:'reach',
+const PLAYER_BASE = {type:'player', player:true, zombie:true, skin: shades('#9ccc48'), hair: shades('#2a1a14'), style:2,
+  shirt: shades('#c4d8e0'), pants: shades('#9ccc48'), shoe:'#6a9a30', gear:'brain', gown:true, pose:'reach',
   blood: [[1,3],[-2,5],[2,6]]};
+// the player's sprite is rebuilt whenever the mutation set changes, so every mutation shows on the body
+const PL_CACHE = new Map();
+function playerLook(mods){
+  const sig = Object.keys(mods).sort().map(k => k+mods[k]).join(','); let L = PL_CACHE.get(sig); if (L) return L;
+  const lg = mods.legs || 0;
+  L = Object.assign({}, PLAYER_BASE, {id: ++LOOKID, muts: Object.assign({}, mods),
+    rowOps: {dup: [20,25].concat(lg>=2 ? [24] : [], lg>=4 ? [26] : []), dupCol: 12}});
+  PL_CACHE.set(sig, L); return L;
+}
+const PLAYER_LOOK = playerLook({});
+// stretch/shrink a sprite by duplicating or dropping whole pixel rows/columns (keeps pixels crisp)
+function reshape(c, ops){
+  if (!ops) return c;
+  const rows = [], cols = [];
+  for (let y=0;y<c.height;y++){ if (ops.del && ops.del.includes(y)) continue; rows.push(y); if (ops.dup && ops.dup.includes(y)) rows.push(y); }
+  for (let x=0;x<c.width;x++){ if (ops.delCol===x) continue; cols.push(x); if (ops.dupCol===x) cols.push(x); }
+  const t = mk(c.width, rows.length), tg = t.getContext('2d');
+  rows.forEach((sy,dy) => tg.drawImage(c, 0, sy, c.width, 1, 0, dy, c.width, 1));
+  const o = mk(cols.length, rows.length), og = o.getContext('2d');
+  cols.forEach((sx,dx) => og.drawImage(t, sx, 0, 1, t.height, dx, 0, 1, t.height));
+  return o;
+}
+// mutation overlays drawn onto Patient Zero (coords match buildChar's local space)
+function drawMuts(P, M, dir, X, hy){
+  const front = dir===0, back = dir===1, side = dir===2, hx = side ? 1 : 0, lv = k => M[k] || 0;
+  const BONE = '#ece4c8', BONED = '#b0a688', TOOTH = '#f0ecdc';
+  let v;
+  if ((v = lv('hide'))){ const pl = '#6e5e5c', ph = '#9a8a84';
+    if (!side){ P(X-7,11,3,2,pl); P(X+4,11,3,2,pl); P(X-7,11,3,1,ph); P(X+4,11,3,1,ph);
+      if (v>=2){ P(X-3,13,2,2,pl); P(X+1,13,2,2,pl); P(X-3,13,2,1,ph); P(X+1,13,2,1,ph); }
+      if (v>=3){ P(X-7,13,1,3,pl); P(X+6,13,1,3,pl); }
+      if (v>=4){ P(X-3,16,6,2,pl); P(X-3,16,6,1,ph); }
+      if (v>=5 && front) P(X-4,hy+1,8,1,pl); }
+    else { P(X-4,11,3,2,pl); P(X-4,11,3,1,ph); if (v>=2) P(X-3,14,2,3,pl); if (v>=4) P(X-4,16,2,3,pl); if (v>=5) P(X-2+hx,hy+1,6,1,pl); } }
+  if ((v = lv('aura'))){ const s = front ? [[X+2,hy+1],[X-3,hy+5],[X-6,14],[X+4,15],[X-2,18],[X+1,13]]
+      : side ? [[X+hx,hy+2],[X+1,15],[X-2,13],[X-1,18],[X+2+hx,hy+6],[X,20]] : [[X-2,hy+3],[X+2,14],[X-3,17],[X+1,19],[X,hy+6],[X-3,13]];
+    for (let i=0;i<Math.min(s.length,v+1);i++){ const [x,y] = s[i]; P(x,y,2,1,'#5a3a52'); P(x,y+1,1,1,'#3a2234'); } }
+  if ((v = lv('contagion'))){ const s = front ? [[X-3,hy+1],[X-6,15],[X+2,14],[X+4,16],[X-2,17],[X+2,hy+5],[X-4,hy+4],[X+1,19],[X-6,13],[X+3,hy+2]]
+      : side ? [[X-1+hx,hy+2],[X+1,14],[X-2,17],[X+3+hx,hy+5],[X,19],[X-3,13],[X+2+hx,hy+1],[X-1,16],[X+1,20],[X-2,hy+5]]
+      : [[X-3,13],[X+2,15],[X-2,18],[X+1,hy+2],[X-3,hy+4],[X+2,17],[X,13],[X-1,20],[X+3,hy+5],[X-4,16]];
+    for (let i=0;i<Math.min(s.length,v*2);i++){ const [x,y] = s[i]; P(x,y,1,1,'#f0f060'); } }
+  if ((v = lv('boom'))){ const o = '#ff9a2a';
+    if (front){ P(X-2,14,1,2,o); if (v>=2) P(X+1,15,1,3,o); if (v>=3) P(X-1,16,2,2,'#ffd060'); if (v>=4){ P(X-6,13,1,1,o); P(X+5,14,1,1,o); } if (v>=5){ P(X-3,hy+2,1,2,o); P(X+2,hy+3,1,1,o); } }
+    else if (side){ P(X-1,14,1,2,o); if (v>=3) P(X,16,2,2,'#ffd060'); if (v>=5) P(X+hx,hy+2,1,2,o); }
+    else { P(X-2,14,1,3,o); if (v>=3) P(X+1,16,1,2,o); } }
+  if ((v = lv('trail'))){ const g1 = '#6abf1f';
+    if (!side){ P(X-4,23,3,1,g1); P(X+1,23,3,1,g1); if (v>=2){ P(X-3,22,1,1,g1); P(X+2,22,1,1,g1); } if (v>=4){ P(X-4,20,1,2,g1); P(X+3,21,1,2,g1); } }
+    else { P(X-2,23,4,1,g1); if (v>=3) P(X-1,21,1,2,g1); } }
+  if ((v = lv('legs'))){ const r = '#c8404a';
+    if (!side){ P(X-3,21,1,2,r); P(X+2,21,1,2,r); if (v>=3){ P(X-4,25,1,1,TOOTH); P(X+3,25,1,1,TOOTH); } }
+    else { P(X-1,21,1,2,r); if (v>=3) P(X+2,25,1,1,TOOTH); } }
+  if ((v = lv('hunger'))){ const b = '#b01828';
+    if (front){ P(X-3,hy+6,1,1,b); P(X+2,hy+6,1,1,b); if (v>=2){ P(X-6,15,2,1,b); P(X+3,15,2,1,b); } if (v>=3){ P(X-3,17,2,2,b); P(X+1,13,2,1,b); } if (v>=4) P(X-1,19,3,2,b); if (v>=5) P(X-4,hy+7,8,1,b); }
+    else if (side){ P(X+2+hx,hy+6,2,1,b); if (v>=2) P(X+6,14,2,1,b); if (v>=3) P(X-2,16,2,2,b); }
+    else if (v>=3) P(X-2,15,3,2,b); }
+  if ((v = lv('spikes'))){
+    if (!side){ P(X-6,9,1,2,BONE); P(X+5,9,1,2,BONE);
+      if (v>=2){ P(X-7,8,1,2,BONE); P(X+6,8,1,2,BONE); }
+      if (v>=3){ P(X-8,13,2,1,BONE); P(X+6,13,2,1,BONE); }
+      if (v>=4){ P(X-6,hy+1,1,1,BONE); P(X+5,hy+1,1,1,BONE); }
+      if (back) for (let i=0;i<Math.min(4,v);i++){ P(X-1,13+i*2,2,1,BONE); P(X-2,13+i*2,1,1,BONED); P(X+1,13+i*2,1,1,BONED); }
+      if (front && v>=5) P(X-1,13,2,1,BONE); }
+    else { for (let i=0;i<Math.min(5,v+1);i++) P(X-5-(i%2),12+i*2,2,1,BONE); if (v>=3) P(X-1,9,1,2,BONE); } }
+  if ((v = lv('spit'))){ const G = '#9be03a';
+    if (front){ P(X,hy+7,1,Math.min(1+v,4),G); if (v>=2) P(X-2,hy+6,1,1,'#5aa01a'); if (v>=3){ P(X-2,14,2,1,G); P(X+1,16,1,2,G); } if (v>=5){ P(X-2,12,4,2,'#7acc2a'); P(X-1,12,2,1,'#c4ff6a'); } }
+    else if (side){ P(X+3+hx,hy+7,1,Math.min(1+v,4),G); if (v>=5) P(X+1+hx,12,3,2,'#7acc2a'); } }
+  if ((v = lv('screech'))){ const m = '#2a0a14';
+    if (front){ P(X-2,hy+5,4,2+(v>=3?1:0),m); P(X-2,hy+5,1,1,TOOTH); P(X+1,hy+5,1,1,TOOTH); if (v>=2){ P(X-3,12,1,2,'#c84a6a'); P(X+2,12,1,2,'#c84a6a'); } }
+    else if (side){ P(X+2+hx,hy+5,2,2+(v>=3?1:0),m); P(X+3+hx,hy+5,1,1,TOOTH); } }
+  if ((v = lv('jaws'))){ const n = 1+Math.ceil(v/2);
+    if (front){ P(X-2,hy+7,4,n,'#7a1a2a'); P(X-2,hy+7,1,1,TOOTH); P(X+1,hy+7,1,1,TOOTH); if (v>=3){ P(X-2,hy+6+n,1,1,TOOTH); P(X+1,hy+6+n,1,1,TOOTH); } }
+    else if (side){ P(X+1+hx,hy+7,3,n,'#7a1a2a'); P(X+3+hx,hy+7,1,1,TOOTH); } }
+  const ext = lv('horde') ? Math.ceil(lv('horde')/2) : 0;
+  if (ext){ const w = side ? 7 : (lv('horde')>=3 ? 10 : 8), x0 = side ? X-3+hx : X-w/2;
+    P(x0, hy-2-ext, w, ext+1, '#e88aaa'); P(x0+1, hy-2-ext, w-2, 1, '#ffc4d8');
+    for (let i=1;i<w-1;i+=3) P(x0+i, hy-1-ext+(i%2), 1, ext, '#a8486e');
+    if (lv('horde')>=4) P(x0+2, hy-2-ext, 2, 1, '#ffffff'); }
+  if ((v = lv('alpha'))){ const top = hy-3-ext, cr = v>=5 ? '#fff0a0' : '#e8c860';
+    const xs = side ? [X-2+hx,X+hx,X+2+hx] : [X-3,X-1,X+1,X+3,X-5,X+4], n = side ? Math.min(3,1+Math.floor(v/2)) : Math.min(6,v+1);
+    for (let i=0;i<n;i++){ const hgt = (i<2?2:1) + (v>=5?1:0); P(xs[i], top-hgt+1, 1, hgt, cr); }
+    P(side ? X-2+hx : X-4, top+1, side ? 6 : 8, 1, '#a08030'); }
+}
 
 // ---------- character sprite builder (24x28, feet at row 25, centre x 12) ----------
 // dir: 0 = facing camera, 1 = facing away, 2 = facing right (left is mirrored)
 function buildChar(L, dir, step, pose){
-  const c = mk(24,28), g = c.getContext('2d'), X = 12;
+  const c = mk(24,32), g = c.getContext('2d'), X = 12;
+  g.translate(0,4);   // 4px headroom for crowns / big brains
   const P = (x,y,w,h,col) => { g.fillStyle = col; g.fillRect(x,y,w,h); };
   const sk = L.skin, sh = L.shirt, pa = L.pants, hr = L.hair, shoe = L.shoe;
   const Z = !!L.zombie, hun = Z ? 1 : 0, hy = 4 + hun;
-  const eye = L.player ? '#c6ff4a' : Z ? '#eaff60' : '#1a0f1f';
+  const eye = L.player ? '#c6ff4a' : Z ? '#ffc040' : '#1a0f1f';
   const front = dir===0, back = dir===1, side = dir===2;
   const aS = step===1 ? 1 : step===2 ? -1 : 0;
   const lY = step===1 ? -1 : 0, rY = step===2 ? -1 : 0;
@@ -253,7 +338,8 @@ function buildChar(L, dir, step, pose){
     else if (side){ P(X+4,10,3,13,S0); P(X+4,10,1,13,S1); P(X+6,10,1,13,S2); }
     else { P(X+4,12,2,10,S2); }
   }
-  return outline(c);
+  if (L.muts) drawMuts(P, L.muts, dir, X, hy);
+  return outline(reshape(c, L.rowOps));
 }
 const spriteCache = new Map();
 function charSprite(L, dir, step, pose, flash){
@@ -267,7 +353,7 @@ function corpseSprite(L){
   const key = 'c'+L.id; let s = spriteCache.get(key); if (s) return s;
   const src = charSprite(L, 0, 0, 'walk', false);
   s = mk(28,24); const g = s.getContext('2d');
-  g.translate(14,12); g.rotate(-Math.PI/2); g.drawImage(src,-12,-15); g.setTransform(1,0,0,1,0,0);
+  g.translate(14,12); g.rotate(-Math.PI/2); g.drawImage(src,-Math.floor(src.width/2),-Math.floor(src.height*0.58)); g.setTransform(1,0,0,1,0,0);
   g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(30,10,30,.28)'; g.fillRect(0,0,28,24);
   spriteCache.set(key, s); return s;
 }

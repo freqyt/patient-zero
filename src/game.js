@@ -20,6 +20,8 @@ function startGame(){
     wt:{spit:0,spikes:1.5,screech:2,trail:0}, banner:null, crowd:null, nextCrowd:25,
     bosses:{}, maxHorde:0, wasNight:false, finalWave:false,
   };
+  S.combo = 0; S.comboT = 0;
+  SFX.init();
   setState('play');
   banner('THE OUTBREAK BEGINS', 'HUNT THE LIVING');
 }
@@ -56,6 +58,7 @@ function spawnCrowd(){
   const cx = S.player.x + Math.cos(a)*R, cy = S.player.y + Math.sin(a)*R, n = 14 + Math.floor(S.t/30);
   for (let i=0;i<n;i++) spawnHuman(Math.random()<0.15 && S.t>60 ? 'cop' : 'civ', cx+rand(-60,60), cy+rand(-60,60));
   S.crowd = {x:cx, y:cy, t:9};
+  SFX.play('crowd');
   banner('SURVIVORS SPOTTED', 'FRESH MEAT NEARBY');
 }
 
@@ -73,7 +76,7 @@ function dmgHuman(h, dmg, src, quiet){
   if (h.hp <= 0) killHuman(h);
 }
 function killHuman(h){
-  h.dead = true; S.kills++;
+  h.dead = true; S.kills++; SFX.at('die', h.x, h.y);
   FX.blood(h.x,h.y,h.boss?30:8,false);
   S.gems.push({x:h.x, y:h.y, v:h.xp, big:h.boss || h.xp>=4});
   if (L('hunger')) heal(0.6*L('hunger'));
@@ -90,17 +93,18 @@ function hurtMinion(m, dmg){
   if (m.hp<=0) return;
   m.hp -= dmg; m.flash = 0.07;
   if (m.hp <= 0){
-    FX.blood(m.x,m.y,7,true);
+    FX.blood(m.x,m.y,7,true); SFX.at('squish', m.x, m.y);
     const lb = L('boom');
     if (lb) explode(m.x,m.y,45+10*lb, 18+16*lb, 'zombie');
     if (VAR[m.v].bloat) explode(m.x,m.y,85, 40+S.t/8, 'zombie', 'fire');
   }
 }
 function hurtPlayer(dmg){
-  const p = S.player; p.hp -= dmg; p.flash = 0.1; S.shake = Math.min(8, S.shake + dmg*0.5);
+  const p = S.player; SFX.play('hurt'); p.hp -= dmg; p.flash = 0.1; S.shake = Math.min(8, S.shake + dmg*0.5);
   if (p.hp <= 0){ p.hp = 0; gameOver(false); }
 }
 function explode(x,y,r,dmg,side,style){
+  SFX.at('boom', x, y);
   FX.explosion(x,y,r, style==='fire' || side==='human' ? 'fire' : 'green');
   if (side==='zombie'){ for (const h of S.humans) if (!h.dead && d2(h,{x,y}) < (r+h.r)**2) dmgHuman(h,dmg,'boom'); }
   else if (side==='human'){
@@ -114,7 +118,7 @@ function devour(){
   for (const m of S.minions){ if (m.rise>0) continue; const d = d2(p,m); if (d<bd){ bd=d; best=m; } }
   if (!best){ floatText(p.x,p.y,'NO MINION','#a09aa8'); return; }
   best.hp = 0; FX.blood(best.x,best.y,14,true);
-  heal(22 + p.maxHp*0.08); p.frenzy = 3.5; p.devourCd = 5;
+  SFX.play('devour'); heal(22 + p.maxHp*0.08); p.frenzy = 3.5; p.devourCd = 5;
   floatText(p.x,p.y,'FRENZY!','#ff5a5a');
 }
 function hfire(h, ang, spd, dmg, opts){
@@ -123,8 +127,10 @@ function hfire(h, ang, spd, dmg, opts){
   if (b.shell) b.t0 = b.t;
   S.hb.push(b);
   if (!b.fire) FX.muzzle(ox, oy, ang, b.shell);
+  SFX.at(b.fire ? 'flame' : b.shell ? 'cannon' : h.boss ? 'mg' : 'gun', ox, oy);
 }
 function gameOver(win){
+  SFX.play(win ? 'win' : 'gameover');
   setState('over');
   $('overTitle').textContent = win ? 'THE CITY HAS FALLEN' : 'YOU WERE PUT DOWN';
   $('overTitle').style.color = win ? '#9be03a' : '#ff5a5a';
@@ -135,8 +141,11 @@ function gameOver(win){
 
 // ---------- level up ----------
 function openLevel(){
+  if (S.state !== 'level') SFX.play('levelup');
   setState('level');
-  const pool = Object.keys(MUTS).filter(k => L(k) < MAXLV), opts = [];
+  const owned = Object.keys(S.mods), full = owned.length >= MAX_SLOTS;
+  const pool = (full ? owned : Object.keys(MUTS)).filter(k => L(k) < MAXLV), opts = [];
+  $('slots').textContent = full ? `SLOTS FULL ${MAX_SLOTS}/${MAX_SLOTS} - UPGRADES ONLY` : `MUTATION SLOTS ${owned.length}/${MAX_SLOTS}`;
   while (opts.length < 3 && pool.length) opts.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
   if (!opts.length) opts.push('_heal');
   const el = $('cards'); el.innerHTML = '';
@@ -152,6 +161,7 @@ function openLevel(){
 }
 function choose(k){
   if (S.state!=='level') return;
+  SFX.play('select');
   const p = S.player;
   if (k==='_heal') heal(50);
   else { S.mods[k] = L(k) + 1; if (k==='hide'){ p.maxHp += 25; heal(25); } }
@@ -179,8 +189,8 @@ function separate(bodies){
 function update(dt){
   S.t += dt;
   const p = S.player, nt = nightAmt(), isNight = nt > 0.5;
-  if (isNight && !S.wasNight) banner('NIGHT FALLS', 'THE HORDE GROWS STRONGER');
-  if (!isNight && S.wasNight) banner('DAWN', 'THE LIVING REGROUP');
+  if (isNight && !S.wasNight){ SFX.play('night'); } if (isNight && !S.wasNight) banner('NIGHT FALLS', 'THE HORDE GROWS STRONGER');
+  if (!isNight && S.wasNight){ SFX.play('dawn'); } if (!isNight && S.wasNight) banner('DAWN', 'THE LIVING REGROUP');
   S.wasNight = isNight;
 
   // player movement (keyboard or touch stick)
@@ -200,24 +210,24 @@ function update(dt){
     const reach = 18 + 6*L('jaws'); let tgt = null, bd = 1e9;
     for (const h of S.humans){ if (h.dead) continue; const d = Math.sqrt(d2(p,h))-h.r-p.r; if (d<reach && d<bd){ bd=d; tgt=h; } }
     if (tgt){ const dmg = 20*(1+0.3*L('jaws'))*(p.frenzy>0?2:1)*(1+0.3*nt)*(1+0.04*(S.level-1));
-      dmgHuman(tgt, dmg, 'bite'); p.biteCd = p.frenzy>0 ? 0.28 : 0.45; p.biteT = 0.12; p.biteA = Math.atan2(tgt.y-p.y, tgt.x-p.x); }
+      SFX.play('bite'); dmgHuman(tgt, dmg, 'bite'); p.biteCd = p.frenzy>0 ? 0.28 : 0.45; p.biteT = 0.12; p.biteA = Math.atan2(tgt.y-p.y, tgt.x-p.x); }
   }
 
   // mutations
   const wt = S.wt; let l = L('spit');
-  if (l){ wt.spit -= dt; if (wt.spit<=0){ wt.spit = 1.25*(1-0.1*l);
+  if (l){ wt.spit -= dt; if (wt.spit<=0){ wt.spit = 1.25*(1-0.1*l); SFX.play('spit', 0.6);
     const n = 1 + Math.floor(l/2);
     const tg = S.humans.filter(h=>!h.dead && d2(h,p)<320*320).sort((a,b)=>d2(a,p)-d2(b,p)).slice(0,n);
     for (let i=0;i<n;i++){ const t = tg[i % Math.max(1,tg.length)];
       const a = t ? Math.atan2(t.y-p.y,t.x-p.x) + (i>=tg.length?rand(-.3,.3):0) : p.face + rand(-.4,.4);
       S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*300,vy:Math.sin(a)*300,dmg:12+6*l,t:1.2,r:6,pierce:1+Math.max(0,l-2),hit:new Set(),k:'spit'}); } } }
   l = L('spikes');
-  if (l){ wt.spikes -= dt; if (wt.spikes<=0){ wt.spikes = 3.2 - 0.3*l;
+  if (l){ wt.spikes -= dt; if (wt.spikes<=0){ wt.spikes = 3.2 - 0.3*l; SFX.play('bone');
     const n = 6 + 2*l, off = Math.random()*TAU;
     for (let i=0;i<n;i++){ const a = off + i/n*TAU;
       S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*260,vy:Math.sin(a)*260,dmg:16+8*l,t:0.6,r:5,pierce:3,hit:new Set(),k:'spike'}); } } }
   l = L('screech');
-  if (l){ wt.screech -= dt; if (wt.screech<=0){ wt.screech = 7.5 - 0.8*l;
+  if (l){ wt.screech -= dt; if (wt.screech<=0){ wt.screech = 7.5 - 0.8*l; SFX.play('screech');
     const R = 110 + 20*l;
     S.parts.push({k:'shock',x:p.x,y:p.y,r:10,max:R,t:.45,max2:.45,col:'#e6ffc0'});
     S.parts.push({k:'shock',x:p.x,y:p.y,r:4,max:R*0.7,t:.35,max2:.35,col:'#9be03a'});
@@ -243,7 +253,7 @@ function update(dt){
   S.spawnAcc += dt*rate;
   while (S.spawnAcc >= 1){ S.spawnAcc--; if (S.humans.length < 220) spawnHuman(pickType()); }
   if (S.t >= S.nextCrowd){ S.nextCrowd += 50; spawnCrowd(); }
-  for (const bt of [240, 480]) if (S.t >= bt && !S.bosses[bt]){ S.bosses[bt] = true; spawnHuman('apc'); banner('ARMORED CARRIER','IT CRUSHES THE DEAD'); }
+  for (const bt of [240, 480]) if (S.t >= bt && !S.bosses[bt]){ S.bosses[bt] = true; spawnHuman('apc'); banner('ARMORED CARRIER','IT CRUSHES THE DEAD'); SFX.play('alarm'); }
   if (S.t >= 560 && !S.finalWave){ S.finalWave = true; banner('FINAL STAND','THE ARMY SENDS EVERYTHING');
     for (let i=0;i<30;i++) spawnHuman(i%3?'soldier':'riot'); }
   if (S.t >= GAME_LEN){ gameOver(true); return; }
@@ -307,7 +317,7 @@ function update(dt){
 
   // corpses rising
   for (const c of S.corpses){ c.t -= dt;
-    if (c.t <= 0){ if (S.minions.length < hordeCap()){ addMinion(c.x,c.y,c.v,c.look); FX.rise(c.x,c.y); }
+    if (c.t <= 0){ if (S.minions.length < hordeCap()){ addMinion(c.x,c.y,c.v,c.look); FX.rise(c.x,c.y); SFX.at('rise', c.x, c.y); }
       else FX.corpse({x:c.x, y:c.y, look:c.look}); } }
   S.corpses = S.corpses.filter(c => c.t > 0);
 
@@ -355,8 +365,9 @@ function update(dt){
   // brains
   for (const g of S.gems){ const d = Math.sqrt(d2(g,p));
     if (d < 80 || g.pull){ g.pull = true; const s = Math.min(d, 420*dt); g.x += (p.x-g.x)/(d||1)*s; g.y += (p.y-g.y)/(d||1)*s; }
-    if (d < p.r+6){ g.got = true; S.xp += g.v;
+    if (d < p.r+6){ g.got = true; S.xp += g.v; SFX.play('pickup', 0.8, S.combo++); S.comboT = 0.6;
       while (S.xp >= S.xpNext){ S.xp -= S.xpNext; S.level++; S.pendingLv++; S.xpNext = Math.floor(4 + Math.pow(S.level,1.3)*2.2); } } }
+  S.comboT -= dt; if (S.comboT <= 0) S.combo = 0;
   S.gems = S.gems.filter(g => !g.got);
   if (S.gems.length > 400) S.gems.splice(0, S.gems.length-400);
 
@@ -369,9 +380,10 @@ function update(dt){
 }
 
 // ---------- input: keyboard ----------
-function toggleRally(){ S.rally = !S.rally; floatText(S.player.x, S.player.y, S.rally ? 'RALLY!' : 'HUNT!', S.rally ? '#7ad0ff' : '#b8f060'); }
+function toggleRally(){ S.rally = !S.rally; SFX.play(S.rally ? 'rally' : 'hunt'); floatText(S.player.x, S.player.y, S.rally ? 'RALLY!' : 'HUNT!', S.rally ? '#7ad0ff' : '#b8f060'); }
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase(); K[k] = true;
+  if (k==='m'){ SFX.toggle(); return; }
   if (k===' ' || k.startsWith('arrow')) e.preventDefault();
   if (!S){ if (k==='enter' || k===' ') startGame(); return; }
   if (S.state==='play'){
@@ -388,13 +400,13 @@ addEventListener('blur', () => { for (const k in K) K[k] = false; touch.stick = 
 // ---------- input: touch (virtual stick + buttons) ----------
 const touch = {used:false, stick:null, id:null, ox:0, oy:0};
 function lowXY(e){ return [e.clientX*DPR/SCALE, e.clientY*DPR/SCALE]; }
-function touchButtons(){ const r = 15, y = LH - 30; return [{id:'rally', x:LW-62, y, r, label: S && S.rally ? 'HUNT' : 'RALLY'}, {id:'eat', x:LW-24, y:y-16, r, label:'EAT'}]; }
+function touchButtons(){ const r = 15, y = LH - 30; return [{id:'rally', x:LW-62, y, r, label: S && S.rally ? 'HUNT' : 'RALLY'}, {id:'eat', x:LW-24, y:y-16, r, label:'EAT'}, {id:'snd', x:LW-27, y:44, r:9, label: SFX.muted ? 'OFF' : 'SND'}]; }
 cv.addEventListener('pointerdown', e => {
   if (e.pointerType === 'mouse') return;
   touch.used = true; e.preventDefault();
   if (!S || S.state!=='play') return;
   const [x,y] = lowXY(e);
-  for (const b of touchButtons()) if (Math.hypot(x-b.x, y-b.y) < b.r+6){ if (b.id==='rally') toggleRally(); else devour(); return; }
+  for (const b of touchButtons()) if (Math.hypot(x-b.x, y-b.y) < b.r+6){ if (b.id==='rally') toggleRally(); else if (b.id==='snd') SFX.toggle(); else devour(); return; }
   if (touch.id === null){ touch.id = e.pointerId; touch.ox = x; touch.oy = y; touch.stick = {dx:0, dy:0}; cv.setPointerCapture(e.pointerId); }
 });
 cv.addEventListener('pointermove', e => {

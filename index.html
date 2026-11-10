@@ -60,11 +60,13 @@
     <b>SPACE</b><span>HORDE: HUNT / RALLY</span>
     <b>E / SHIFT</b><span>DEVOUR A MINION (HEAL)</span>
     <b>P / ESC</b><span>PAUSE</span>
+    <b>M</b><span>MUTE SOUND</span>
   </div>
   <div class="box keys mob">
     <b>DRAG</b><span>SHAMBLE</span>
     <b>RALLY</b><span>HORDE: HUNT / GUARD</span>
     <b>EAT</b><span>DEVOUR A MINION (HEAL)</span>
+    <b>SND</b><span>MUTE SOUND</span>
   </div>
   <button id="startBtn" class="btn"><span class="blink">&#9654;</span> RISE</button>
 </div>
@@ -72,6 +74,7 @@
 <div id="level" class="ov">
   <h2>MUTATION!</h2>
   <div class="sub" style="margin:0 0 6px">YOUR FLESH TWISTS. CHOOSE ONE.</div>
+  <div id="slots" class="sub" style="margin:0 0 6px;color:#ffd860"></div>
   <div id="cards" class="cards"></div>
 </div>
 
@@ -85,6 +88,7 @@
 </div>
 
 <script src="src/core.js"></script>
+<script src="src/sfx.js"></script>
 <script src="src/pixel.js"></script>
 <script src="src/world.js"></script>
 <script src="src/render.js"></script>

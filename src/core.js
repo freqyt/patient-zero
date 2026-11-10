@@ -48,3 +48,4 @@ const MUTS = {
   hunger:   {n:'Ravenous',        ic:'🍖', b:'Heal with every kill.',                           u:'More healing per kill.'},
 };
 const MAXLV = 5;
+const MAX_SLOTS = 6;   // distinct mutations you can carry; once full, level-ups only upgrade owned ones
