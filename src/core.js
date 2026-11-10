@@ -43,10 +43,10 @@ const EVOS = {
   screech:{w:'jaws',      n:'Banshee Maw',   ic:'💀', d:'A huge shriek every 3.5s that hits 4x as hard.'},
   aura:   {w:'boom',      n:'Necrotic Nova', ic:'☢️', d:'Rot Cloud 40% wider, 2x damage; its victims burst.'},
   trail:  {w:'legs',      n:'Acid Stampede', ic:'🐾', d:'A wide, double-strength sludge trail and +15% speed.'},
-  alpha:  {w:'horde',     n:'Horde King',    ic:'👑', d:'+6 horde size and your horde hits 50% harder.'},
+  bloom:  {w:'horde',     n:'Horde King',    ic:'👑', d:'Husks stay as permanent horde, +6 horde size, horde hits 50% harder.'},
   lash:   {w:'leech',     n:'Blood Whip',    ic:'🐙', d:'Lash one more target, 40% harder and faster; every lash heals you.'},
   spores: {w:'hunger',    n:'Fungal Bloom',  ic:'🌱', d:'Drop 3 pods at once with 60% bigger blasts that seed new pods.'},
-  chitin: {w:'eyes',      n:'Mirror Carapace', ic:'🪞', d:'+15% deflect; deflected bullets fire back at triple damage.'},
+  beam:   {w:'eyes',      n:'Gaze of Ruin',  ic:'🔆', d:'Twin beams fire front and back, twice as long, double damage.'},
 };
 // minion variants: the dead keep their gear
 const VAR = {
@@ -79,10 +79,15 @@ const MUTS = {
   spores:   {n:'Spore Pods',      ic:'🍄', b:'Drop spore mines that burst when humans step near.',   u:'Bigger, deadlier blasts, more often.'},
   leech:    {n:'Blood Leech',     ic:'🩸', b:'Heal from the damage your horde deals.',               u:'More healing from your horde.'},
   chitin:   {n:'Chitin Shell',    ic:'🐚', b:'Chance to deflect bullets, and take 4% less damage.', u:'+8% deflect chance, 4% tougher.'},
+  bloom:    {n:'Corpse Bloom',    ic:'🪦', b:'Husk zombies claw out of the ground beside your prey.', u:'More husks, more often, lasting longer.'},
+  beam:     {n:'Eye Beam',        ic:'🔦', b:'A piercing beam burns through every human in a line.', u:'Longer, stronger beams, more often.'},
   haste:    {n:'Adrenal Surge',   ic:'⚡', b:'+10% attack speed for every attack and mutation.', u:'+10% attack speed.'},
   luck:     {n:'Lucky Rot',       ic:'🍀', b:'+1 luck: more crits, more level-up choices, more loot.', u:'+1 luck.'},
   might:    {n:'Mutant Might',    ic:'💪', b:'+12% damage from all your attacks.',               u:'+12% damage.'},
   eyes:     {n:'Extra Eyes',      ic:'👁️', b:'+12% attack range, pickup range and +4% crit chance.', u:'+12% range, +4% crit.'},
 };
 const MAXLV = 5;
-const MAX_SLOTS = 8;   // distinct mutations you can carry; once full, level-ups only upgrade owned ones
+// WEAPONS are active attacks; everything else is an ITEM (passive). Each weapon evolves with one item.
+const WEAPONS = new Set(['spit','spikes','screech','aura','trail','lash','spores','bloom','beam']);
+const isWeapon = k => WEAPONS.has(k);
+const BASE_SLOTS = 3;   // weapon slots and item slots each start at 3; DNA Lab raises each up to 6

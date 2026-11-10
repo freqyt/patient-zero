@@ -123,6 +123,29 @@ function updateContent(dt, p){
           if (!t.boss){ const d = pd2(t,p) || 1; t.kx = (p.x-t.x)/d*260; t.ky = (p.y-t.y)/d*260; }
           if (E('lash')) heal(2, 'lash');
           S.parts.push({k:'lash', x:p.x, y:p.y, x2:t.x, y2:t.y, t:.2, max:.2}); } } } }
+  // Corpse Bloom: husk zombies claw up next to your prey (temporary; permanent with Horde King if there's room)
+  l = L('bloom');
+  if (l){ S.wt.bloom = (S.wt.bloom ?? 2) - dt;
+    if (S.wt.bloom <= 0){ S.wt.bloom = Math.max(2.5, 6 - 0.6*l)/AS();
+      const tg = S.humans.filter(h => vis(h) && d2(h,p) < 260*260);
+      for (let i=0;i<1 + Math.floor(l/2) + (E('bloom') ? 1 : 0);i++){ const t = tg.length ? pick(tg) : p;
+        const x = t.x + rand(-22,22), y = t.y + rand(-16,16), keep = E('bloom') && hordeCount() < hordeCap();
+        addMinion(x, y, 'civ', pick(LOOKS.civ)); const m = S.minions[S.minions.length-1]; m.husk = true; m.life = keep ? 0 : 8 + l;
+        S.st.risen--; FX.rise(x, y); }
+      SFX.play('rise', 0.6); } }
+  // Eye Beam: a piercing line that burns everything along it
+  l = L('beam');
+  if (l){ S.wt.beam = (S.wt.beam ?? 1) - dt;
+    if (S.wt.beam <= 0){
+      const tg = S.humans.filter(h => vis(h) && d2(h,p) < (300*rng)**2).sort((a,b) => d2(a,p)-d2(b,p))[0];
+      if (tg){ S.wt.beam = Math.max(0.9, 2.6 - 0.25*l)/AS(); SFX.play('beam');
+        const len = (220 + 20*l)*(E('beam') ? 2 : 1), dmg = (20 + 10*l)*(E('beam') ? 2 : 1), a0 = Math.atan2(tg.y-p.y, tg.x-p.x);
+        for (const a of E('beam') ? [a0, a0+Math.PI] : [a0]){
+          const ex = p.x + Math.cos(a)*len, ey = p.y + Math.sin(a)*len;
+          for (const h of S.humans){ if (h.dead || !isTarget(h) || h.air) continue;
+            const t = clamp(((h.x-p.x)*(ex-p.x) + (h.y-p.y)*(ey-p.y)) / (len*len), 0, 1), qx = p.x + (ex-p.x)*t, qy = p.y + (ey-p.y)*t;
+            if ((h.x-qx)**2 + (h.y-qy)**2 < (h.r + 7)**2) dmgHuman(h, crit(h, dmg), 'beam'); }
+          S.parts.push({k:'beam', x:p.x, y:p.y, x2:ex, y2:ey, t:.18, max:.18}); } } } }
   // Spore Pods: drop mines that burst on contact
   l = L('spores');
   if (l){ S.wt.spores = (S.wt.spores ?? 2) - dt;
@@ -152,13 +175,12 @@ function updateContent(dt, p){
         S.parts.push({k:'casing', x:p.x, y:p.y, vx:Math.cos(a+1.6)*rand(40,80), vy:Math.sin(a+1.6)*rand(40,80), z:10, vz:rand(60,120), t:.6, max:.6}); } } }
 }
 
-// Chitin Shell: chance to shrug off a bullet; Mirror Carapace fires it back
+// Chitin Shell: chance to shrug off a bullet
 function deflect(b){
   const l = L('chitin'); if (!l) return false;
-  if (Math.random() >= 0.08*l + (E('chitin') ? 0.15 : 0)) return false;
+  if (Math.random() >= 0.08*l) return false;
   const p = S.player; SFX.play('clang');
   S.parts.push({k:'spark', x:p.x, y:p.y, vx:-b.vx*0.3, vy:-b.vy*0.3, t:.25, max:.25, col:'#e0e8ff'});
-  if (E('chitin')) S.pb.push({x:p.x, y:p.y, vx:-b.vx*1.3, vy:-b.vy*1.3, dmg:b.dmg*3, t:1.4, r:5, pierce:2, hit:new Set(), k:'mirror'});
   stat('heal', 'chitin', b.dmg);   // shown in the healing table as damage prevented
   return true;
 }

@@ -6,6 +6,8 @@ const META = (() => {
   try { const s = localStorage.getItem(KEY); if (s) data = Object.assign(data, JSON.parse(s)); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
   const UPS = {
+    wslot:    {n:'WEAPON RACK',    d:'+1 weapon slot (base 3, max 6)',   max:3, cost:80, ic:'⚔️'},
+    islot:    {n:'ORGAN SPACE',    d:'+1 item slot (base 3, max 6)',     max:3, cost:70, ic:'🫁'},
     flesh:    {n:'THICK FLESH',    d:'+10 max HP',                       max:5, cost:30, ic:'🫀'},
     origin:   {n:'PATIENT ORIGIN', d:'Start each run with +2 minions',   max:3, cost:60, ic:'🧟'},
     reroll:   {n:'MUTAGEN',        d:'+1 starting reroll (base 3)',       max:3, cost:50, ic:'🎲'},

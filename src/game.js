@@ -42,7 +42,9 @@ const E = k => !!S.evo[k];
 function nightAmt(){ const p = (S.t % 100)/100; return clamp((p-0.62)/0.05,0,1) * clamp((1-p)/0.04,0,1); }
 const infectChance = () => Math.min(0.95, 0.40 + 0.10*L('contagion') + 0.03*META.rank('virulence'));
 // a smaller horde of tougher zombies (cap 5 -> 20, +6 with Horde King)
-const hordeCap = () => 5 + 3*L('horde') + (E('alpha') ? 6 : 0) + (S.ch.horde || 0);
+const hordeCap = () => 5 + 3*L('horde') + (E('bloom') ? 6 : 0) + (S.ch.horde || 0);
+const slotsW = () => BASE_SLOTS + META.rank('wslot'), slotsI = () => BASE_SLOTS + META.rank('islot');
+const hordeCount = () => S.minions.reduce((a, m) => a + (m.husk && m.life ? 0 : 1), 0);   // temporary husks don't use horde space
 const HORDE_HP = 1.8, HORDE_DMG = 14;
 function banner(text, sub){ S.banner = {text, sub, t:3.2}; }
 function floatText(x,y,txt,col,crit){ S.texts.push({x,y,txt,col,t:crit ? 0.7 : 0.9, crit}); }
@@ -55,7 +57,7 @@ const luck = () => L('luck') + (S.luckBonus || 0) + META.rank('lucky');
 // attack speed multiplier: every cooldown is divided by this
 const AS = () => 1 + 0.1*L('haste');
 // Mutant Might boosts everything you deal yourself (not your horde or the environment)
-const NOT_MINE = new Set(['minion','bloater','hazard','elite','bomb']);
+const NOT_MINE = new Set(['minion','bloater','hazard','elite','bomb','hbone','bloom']);
 
 // ---------- spawning ----------
 // a random point just outside the visible screen rectangle
@@ -201,7 +203,7 @@ function gameOver(win){
 const SRC_INFO = {
   bite:{n:'Bite', ic:'🦷'}, spit:{mut:'spit'}, spike:{mut:'spikes'}, screech:{mut:'screech'}, aura:{mut:'aura'}, pool:{mut:'trail'},
   minion:{n:'Your Horde', ic:'🧟'}, boom:{mut:'boom'}, bloater:{n:'Bloaters', ic:'🔥'}, hazard:{n:'Fuel Explosions', ic:'⛽'},
-  saw:{n:'Bone Gatling', ic:'💀'}, gat:{n:'Bone Gatling', ic:'💀'}, lash:{mut:'lash'}, spores:{mut:'spores'}, mirror:{evo:'chitin'}, elite:{n:'Elite blasts', ic:'💥'}, bomb:{n:'Biohazard', ic:'☣️'}, nova:{evo:'aura'}, acid:{evo:'spit'}, other:{n:'Other', ic:'❔'},
+  saw:{n:'Bone Gatling', ic:'💀'}, bloom:{mut:'bloom'}, beam:{mut:'beam'}, hbone:{n:'Bone Squad', ic:'🦴'}, gat:{n:'Bone Gatling', ic:'💀'}, lash:{mut:'lash'}, spores:{mut:'spores'}, elite:{n:'Elite blasts', ic:'💥'}, bomb:{n:'Biohazard', ic:'☣️'}, nova:{evo:'aura'}, acid:{evo:'spit'}, other:{n:'Other', ic:'❔'},
 };
 const HEAL_INFO = {hide:['Necrotic Hide','🛡️'], hunger:['Ravenous','🍖'], devour:['Devour','🧟'], heart:['Fresh Hearts','🫀'], chest:['Boss Chests','🎁'],
   feast:['Feast','🩸'], regen:['Natural Regen','💚'], leech:['Blood Leech','🩸'], lash:['Blood Whip','🐙'], chitin:['Chitin (blocked)','🐚'], boss:['Boss Kills','💀'], other:['Other','❔']};
@@ -250,8 +252,10 @@ function statsHTML(){
 
 // ---------- level up ----------
 function openLevel(reroll){
-  const owned = Object.keys(S.mods), full = owned.length >= MAX_SLOTS;
-  const pool = (full ? owned : Object.keys(MUTS)).filter(k => L(k) < MAXLV), opts = [];
+  const owned = Object.keys(S.mods), ownW = owned.filter(isWeapon), ownI = owned.filter(k => !isWeapon(k));
+  const fullW = ownW.length >= slotsW(), fullI = ownI.length >= slotsI();
+  // offer upgrades to anything owned, and new weapons / items only while that kind still has a free slot
+  const pool = Object.keys(MUTS).filter(k => L(k) < MAXLV && (L(k) > 0 || (isWeapon(k) ? !fullW : !fullI))), opts = [];
   const evos = Object.keys(EVOS).filter(k => L(k) >= MAXLV && L(EVOS[k].w) > 0 && !E(k));
   // fully mutated: nothing left to choose, so don't interrupt - level-ups just heal and pay a little DNA
   if (!pool.length && !evos.length){
@@ -270,7 +274,7 @@ function openLevel(reroll){
   setState('level');
   // a ready evolution always takes the first card
   if (evos.length) opts.push('evo:' + pick(evos));
-  $('slots').textContent = full ? `SLOTS FULL ${MAX_SLOTS}/${MAX_SLOTS} - UPGRADES ONLY` : `MUTATION SLOTS ${owned.length}/${MAX_SLOTS}`;
+  $('slots').textContent = `WEAPONS ${ownW.length}/${slotsW()}${fullW ? ' FULL' : ''}  -  ITEMS ${ownI.length}/${slotsI()}${fullI ? ' FULL' : ''}`;
   let nCards = 3; const lk = luck();
   if (Math.random() < lk*0.15) nCards++;
   if (lk >= 7 && Math.random() < (lk-6)*0.15) nCards++;
@@ -285,7 +289,8 @@ function openLevel(reroll){
       c.innerHTML = `<div class="k">${i+1}</div><img class="ic" src="${emojiIcon(V.ic,'#7a5208').toDataURL()}" alt=""><div class="nm">${V.n}</div>
         <div class="lv">EVOLUTION: ${MUTS[b].n.toUpperCase()} + ${MUTS[V.w].n.toUpperCase()}</div><div class="ds">${V.d}</div>`; }
     else { const M = MUTS[k], l = L(k), src = mutIcon(k).toDataURL(), ev = evoHint(k);
-      c.innerHTML = `<div class="k">${i+1}</div><img class="ic" src="${src}" alt=""><div class="nm">${M.n}</div>
+      c.className = 'card ' + (isWeapon(k) ? 'weapon' : 'item');
+      c.innerHTML = `<div class="k">${i+1}</div><img class="ic" src="${src}" alt=""><div class="tag">${isWeapon(k) ? 'WEAPON' : 'ITEM'}</div><div class="nm">${M.n}</div>
         <div class="lv ${l?'':'new'}">${l ? 'LV '+l+' &gt; '+(l+1) : 'NEW!'}</div><div class="ds">${l?M.u:M.b}</div>${ev}`; }
     c.onclick = () => choose(k);
     el.appendChild(c);
@@ -590,12 +595,12 @@ function update(dt){
 
   // corpses rising
   for (const c of S.corpses){ c.t -= dt;
-    if (c.t <= 0){ if (S.minions.length < hordeCap()){ addMinion(c.x,c.y,c.v,c.look); FX.rise(c.x,c.y); SFX.at('rise', c.x, c.y); }
+    if (c.t <= 0){ if (hordeCount() < hordeCap()){ addMinion(c.x,c.y,c.v,c.look); FX.rise(c.x,c.y); SFX.at('rise', c.x, c.y); }
       else FX.corpse({x:c.x, y:c.y, look:c.look}); } }
   S.corpses = S.corpses.filter(c => c.t > 0);
 
   // minions
-  const am = (1 + 0.2*L('alpha'))*(E('alpha') ? 1.5 : 1), as = 1 + 0.08*L('alpha');
+  const am = (1 + 0.2*L('alpha'))*(E('bloom') ? 1.5 : 1), as = 1 + 0.08*L('alpha'), HS = S.ch.hs || {};
   S.minions.forEach((m,i) => {
     m.flash -= dt; m.atkCd -= dt; m.wob += dt*8;
     if (m.rise > 0){ m.rise -= dt; return; }
@@ -603,15 +608,27 @@ function update(dt){
     m.rt -= dt;
     if (m.target && m.target.dead) m.target = null;
     if (m.rt <= 0){ m.rt = rand(0.2,0.35);
-      const t = nearestHuman(m, 260, true); m.target = (t && d2(t,p) < 420*420) ? t : null; }
+      const t = nearestHuman(m, HS.range || 260, true); m.target = (t && d2(t,p) < (HS.leash || 420)**2) ? t : null; }
+    if (m.husk && m.life){ m.life -= dt; if (m.life <= 0){ m.hp = 0; FX.rise(m.x, m.y); return; } }   // temporary husks crumble
+    if (HS.regen) m.hp = Math.min(m.maxHp, m.hp + m.maxHp*HS.regen*dt);
     let tx, ty;
     if (m.target){ tx = m.target.x; ty = m.target.y; }
-    else { const ring = 46 + (i%4)*16, a = m.slot + S.t*0.25;
-      tx = p.x + Math.cos(a)*ring; ty = p.y + Math.sin(a)*ring*0.8; }
+    else switch (HS.form){   // idle formation differs per character
+      case 'tight': { const a = m.slot + S.t*0.6, r = 26 + (i%3)*10; tx = p.x + Math.cos(a)*r; ty = p.y + Math.sin(a)*r*0.8; break; }
+      case 'front': { const a = p.face + ((i%5)-2)*0.32, r = 40 + Math.floor(i/5)*14; tx = p.x + Math.cos(a)*r; ty = p.y + Math.sin(a)*r*0.8; break; }
+      case 'trail': { tx = p.x - Math.cos(p.face)*(26 + i*11) + Math.sin(p.face)*((i%2)*2-1)*6; ty = p.y - Math.sin(p.face)*(20 + i*8); break; }
+      default: { const ring = 46 + (i%4)*16, a = m.slot + S.t*0.25; tx = p.x + Math.cos(a)*ring; ty = p.y + Math.sin(a)*ring*0.8; }
+    }
     const dx = tx-m.x, dy = ty-m.y, dl = Math.hypot(dx,dy);
-    let spd = 118*GS*V.sp*as*(1+0.35*nt); if (d2(m,p) > 200*200) spd *= 1.6;
-    if (dl > 4){ const s = Math.min(spd*dt, dl); m.x += dx/dl*s; m.y += dy/dl*s; m.face = Math.atan2(dy,dx); }
-    if (m.target && dl < m.r + m.target.r + 5 && m.atkCd <= 0){ m.atkCd = 0.7; { const md = HORDE_DMG*V.dmg*am*(1+0.4*nt); dmgHuman(m.target, md, 'minion'); if (L('leech')) heal(md*0.012*L('leech'), 'leech'); } }
+    let spd = 118*GS*V.sp*as*(1+0.35*nt)*(HS.spd || 1); if (d2(m,p) > 200*200) spd *= 1.6;
+    const holdRange = HS.ranged && m.target && dl < 95;   // the General's squad stops and throws
+    if (dl > 4 && !holdRange){ const s = Math.min(spd*dt, dl); m.x += dx/dl*s; m.y += dy/dl*s; m.face = Math.atan2(dy,dx); }
+    let md = HORDE_DMG*V.dmg*am*(1+0.4*nt); if (HS.crit && Math.random() < HS.crit + 0.03*luck()) md *= 2;
+    if (HS.ranged && m.target && dl < 140 && dl > m.r + m.target.r + 5 && m.atkCd <= 0){ m.atkCd = 1.1; m.face = Math.atan2(dy,dx);
+      S.pb.push({x:m.x, y:m.y, vx:dx/dl*230*GS, vy:dy/dl*230*GS, dmg:md*0.8, t:1.4/GS, r:4, pierce:1, hit:new Set(), k:'hbone'}); }
+    else if (m.target && dl < m.r + m.target.r + 5 && m.atkCd <= 0){ m.atkCd = 0.7;
+      dmgHuman(m.target, md, m.husk ? 'bloom' : 'minion'); if (L('leech')) heal(md*0.012*L('leech'), 'leech');
+      if (HS.lifesteal) m.hp = Math.min(m.maxHp, m.hp + md*HS.lifesteal); }
   });
   S.minions = S.minions.filter(m => m.hp > 0);
   S.maxHorde = Math.max(S.maxHorde, S.minions.length);

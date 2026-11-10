@@ -342,7 +342,7 @@ function drawSorted(){
     else if (kind===3) drawBoss(o);
     if (kind===2 && o.swing > 0){ const x = sx(o.x), y = sy(o.y) - 12; lg.fillStyle = '#f0ecdc';
       for (let i=-3;i<=3;i++){ const a = o.face + i*0.25; lg.fillRect(Math.round(x+Math.cos(a)*11), Math.round(y+Math.sin(a)*7), 1, 1); } }
-    else if (kind===4){ const r = o.rise > 0 ? 1 - o.rise/0.45 : 1; drawChar(o, o.look, 'reach', o.flash > 0, r);
+    else if (kind===4){ const r = o.rise > 0 ? 1 - o.rise/0.45 : 1; if (o.husk && o.life) lg.globalAlpha = 0.65 + 0.2*Math.sin(S.t*8); drawChar(o, o.look, 'reach', o.flash > 0, r); lg.globalAlpha = 1;
       if (o.hp < o.maxHp && o.rise <= 0) miniBar(sx(o.x), sy(o.y)-29, 8, o.hp/o.maxHp, '#9be03a'); }
     else if (kind===5){ const k = 1 - o.t/o.max, x = sx(o.x) + ((S.t*40|0)%2 ? Math.round(k) : 0), y = sy(o.y);
       const s = corpseSprite(o.look); lg.drawImage(s, x-14, y-14);
@@ -517,14 +517,10 @@ function drawHUD(nt){
     pbar(bx, by, bw, 3, boss.hp/boss.maxHp, '#ffa080', '#d02828'); }
 
   // mutation slots: owned icons with level pips, then empty frames up to the cap
-  const ks = Object.keys(S.mods), gap = 21, tot = MAX_SLOTS*gap - 3;
-  for (let i=0;i<MAX_SLOTS;i++){ const x = Math.round(LW/2 - tot/2 + i*gap), y = LH - 27;
-    lg.fillStyle = 'rgba(18,10,26,.7)'; lg.fillRect(x, y, 18, 18); lg.fillStyle = i < ks.length ? '#7a6a8a' : '#3a2e44';
-    lg.fillRect(x, y, 18, 1); lg.fillRect(x, y+17, 18, 1); lg.fillRect(x, y, 1, 18); lg.fillRect(x+17, y, 1, 18);
-    if (i >= ks.length) continue;
-    const k = ks[i]; lg.drawImage(mutIcon(k), x, y);
-    if (S.evo[k]){ lg.fillStyle = (S.t*4|0)%2 ? '#ffe070' : '#c89a30'; lg.fillRect(x, y, 18, 1); lg.fillRect(x, y+17, 18, 1); lg.fillRect(x, y, 1, 18); lg.fillRect(x+17, y, 1, 18); }
-    for (let j=0;j<MAXLV;j++){ lg.fillStyle = j < S.mods[k] ? '#9be03a' : '#3a2e44'; lg.fillRect(x+2+j*3, y+20, 2, 2); } }
+  // two rows: weapons (red frames) along the bottom, items (blue frames) above them
+  const own = Object.keys(S.mods);
+  slotRow(own.filter(isWeapon), slotsW(), LH - 27, '#a85a5a', '#4a2a30');
+  slotRow(own.filter(k => !isWeapon(k)), slotsI(), LH - 52, '#5a7aa8', '#2a3048');
 
   if (S.banner && S.state !== 'over'){ const b = S.banner, el = 3.2 - b.t;
     if (el > 0.08 || (S.t*20|0)%2){ const y = Math.round(LH*0.28), sc = textW(b.text,2) < LW-16 ? 2 : 1;
@@ -747,6 +743,11 @@ function drawGroundFx(){
 }
 // tendril lashes and sniper laser sights, drawn above the sprites
 function drawContentFx(){
+  for (const q of S.parts) if (q.k === 'beam'){
+    const f = q.t/q.max, x1 = sx(q.x), y1 = sy(q.y)-14, x2 = sx(q.x2), y2 = sy(q.y2)-14, n = Math.hypot(x2-x1, y2-y1)|0;
+    for (let i=0;i<n;i++){ const t = i/n, x = Math.round(x1+(x2-x1)*t), y = Math.round(y1+(y2-y1)*t);
+      lg.fillStyle = f > 0.5 ? '#ff9a3a' : '#c84a1a'; lg.fillRect(x, y-1, 1, 3); lg.fillStyle = '#fff4c0'; lg.fillRect(x, y, 1, 1); }
+    lg.globalCompositeOperation = 'lighter'; band(lg, BAND.orange, x2, y2, 10*f, 0.6); band(lg, BAND.yellow, x1, y1, 8*f, 0.7); lg.globalCompositeOperation = 'source-over'; lg.globalAlpha = 1; }
   for (const q of S.parts) if (q.k === 'lash'){
     const f = q.t/q.max, x1 = sx(q.x), y1 = sy(q.y)-14, x2 = sx(q.x2), y2 = sy(q.y2)-12, n = Math.max(4, Math.hypot(x2-x1, y2-y1)/2|0);
     lg.fillStyle = f > 0.5 ? '#d08af0' : '#8a3aa0';
@@ -805,4 +806,15 @@ function drawVan(h){
   lg.fillStyle = on ? '#ff3030' : '#3050ff'; lg.fillRect(x-7, ty, 6, 2);
   lg.fillStyle = on ? '#3050ff' : '#ff3030'; lg.fillRect(x+1, ty, 6, 2);
   if (h.hp < h.maxHp*0.5 && Math.random() < 0.25) FX.smoke(h.x+rand(-20,20), h.y-30, 1, 0.8);
+}
+
+function slotRow(ks, cap, y, on, off){
+  const gap = 21, tot = cap*gap - 3;
+  for (let i=0;i<cap;i++){ const x = Math.round(LW/2 - tot/2 + i*gap);
+    lg.fillStyle = 'rgba(18,10,26,.7)'; lg.fillRect(x, y, 18, 18); lg.fillStyle = i < ks.length ? on : off;
+    lg.fillRect(x, y, 18, 1); lg.fillRect(x, y+17, 18, 1); lg.fillRect(x, y, 1, 18); lg.fillRect(x+17, y, 1, 18);
+    if (i >= ks.length) continue;
+    const k = ks[i]; lg.drawImage(mutIcon(k), x, y);
+    if (S.evo[k]){ lg.fillStyle = (S.t*4|0)%2 ? '#ffe070' : '#c89a30'; lg.fillRect(x, y, 18, 1); lg.fillRect(x, y+17, 18, 1); lg.fillRect(x, y, 1, 18); lg.fillRect(x+17, y, 1, 18); }
+    for (let j=0;j<MAXLV;j++){ lg.fillStyle = j < S.mods[k] ? '#9be03a' : '#3a2e44'; lg.fillRect(x+2+j*3, y+20, 2, 2); } }
 }

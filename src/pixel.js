@@ -223,6 +223,11 @@ function drawMuts(P, M, dir, X, hy){
     else for (let i=0;i<Math.min(4,v);i++) P(X-5-i,13+i*2,2,1,t); }
   if ((v = lv('eyes'))){ const s = front ? [[X-3,hy+1],[X+2,hy+1],[X-1,hy],[X-4,hy+5],[X+3,hy+5]] : side ? [[X+1+hx,hy+1],[X+3+hx,hy+1],[X+hx,hy+5]] : [];
     for (let i=0;i<Math.min(s.length,v);i++){ const [x,y] = s[i]; P(x,y,1,1,'#ffe060'); } }
+  if ((v = lv('bloom'))){ const g1 = '#a070c8';   // grave-dirt and purple bloom buds on the gown
+    const s = side ? [[X-2,18],[X,15]] : [[X-3,18],[X+2,18],[X-1,15],[X+1,13],[X-3,14]];
+    for (let i=0;i<Math.min(s.length,v);i++){ const [x,y] = s[i]; P(x,y,1,1,g1); P(x,y+1,1,1,'#5a3a2a'); } }
+  if ((v = lv('beam')) && !back){   // a glowing eye opening on the chest
+    if (side) P(X+1,14,1,1,'#ff9a3a'); else { P(X-1,14,2,1,'#ff9a3a'); if (v>=3) P(X-1,14,2,1,'#fff070'); if (v>=5){ P(X-2,14,1,1,'#ff9a3a'); P(X+1,14,1,1,'#ff9a3a'); } } }
   if ((v = lv('haste'))){ const y1 = '#ffe84a';   // crackling yellow nerve-lines on the limbs
     if (!side){ P(X-6,13,1,1,y1); P(X+5,14,1,1,y1); if (v>=2){ P(X-3,21,1,2,y1); P(X+2,22,1,1,y1); } if (v>=4){ P(X-6,15,1,1,y1); P(X+5,12,1,1,y1); } }
     else { P(X+1,13,1,1,y1); if (v>=2) P(X,22,1,2,y1); if (v>=4) P(X-2,15,1,1,y1); } }

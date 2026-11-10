@@ -27,6 +27,18 @@ const CHARS = {
             look:{skin:'#88a068', shirt:'#4b5a35', pants:'#3a4430', gear:'helmet', vest:true},
             task:{k:'win', n:1, txt:'Destroy the Gunship'}},
 };
+// each character's horde fights differently (hs fields are read by the minion AI in game.js)
+const CHAR_HORDE = {
+  zero:    {n:'THE HORDE',    d:'Circles you and hunts nearby prey.', hs:{}},
+  butcher: {n:'GLUTTONS',     d:'Heal 30% of the damage they deal, but shamble slower.', hs:{lifesteal:0.3, spd:0.9}},
+  nurse:   {n:'ORDERLIES',    d:'Stay close to you and slowly regenerate.', hs:{form:'tight', regen:0.04, range:200}},
+  rex:     {n:'RIOT LINE',    d:'Form a 30% tougher shield wall in front of you.', hs:{form:'front', range:180, leash:300}, mhp:1.3},
+  queen:   {n:'THE SWARM',    d:'Fast hunters that range far for prey.', hs:{spd:1.35, range:340, leash:540}},
+  lou:     {n:'LUCKY MOB',    d:'Their hits can crit, more often with luck.', hs:{crit:0.15}},
+  jogger:  {n:'PACK RUNNERS', d:'Very fast; they run in a trail behind you.', hs:{form:'trail', spd:1.4}},
+  general: {n:'BONE SQUAD',   d:'Hang back and throw bones instead of clawing.', hs:{ranged:true, range:220}},
+};
+for (const k in CHAR_HORDE){ const H = CHAR_HORDE[k]; Object.assign(CHARS[k], {hs:H.hs, hn:H.n, hd:H.d}); if (H.mhp) CHARS[k].mhp = (CHARS[k].mhp || 1)*H.mhp; }
 const CHAR_ORDER = Object.keys(CHARS);
 let selChar = 'zero';
 try { const c = localStorage.getItem('pz-char'); if (c && CHARS[c]) selChar = c; } catch (e) {}
@@ -61,7 +73,7 @@ function renderChars(){
     const starts = Object.keys(C.start).map(k => `<img class="mini" src="${emojiIcon(MUTS[k].ic).toDataURL()}" alt="${MUTS[k].n}" title="${MUTS[k].n}">`).join('');
     const b = document.createElement('button'); b.className = 'card char' + (open ? '' : ' locked') + (id === selChar ? ' sel' : '');
     b.innerHTML = `<img class="ic portrait" src="${portrait.toDataURL()}" alt=""><div class="nm">${C.n}</div>
-      ${open ? `<div class="ds">${C.d}</div><div class="lv">STARTS WITH ${starts}</div>` : `<div class="ds">LOCKED</div><div class="lv lock">${C.task.txt.toUpperCase()}</div>`}`;
+      ${open ? `<div class="ds">${C.d}</div><div class="ds hz">HORDE: ${C.hn} - ${C.hd}</div><div class="lv">STARTS WITH ${starts}</div>` : `<div class="ds">LOCKED</div><div class="lv lock">${C.task.txt.toUpperCase()}</div>`}`;
     b.onclick = () => { if (open){ SFX.play('select'); pickChar(id); } else SFX.play('click'); };
     el.appendChild(b);
   }
