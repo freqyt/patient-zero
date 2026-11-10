@@ -42,15 +42,16 @@ const META = (() => {
     // ---- run history, feats, codex, heat ----
     get runs(){ return data.runs; },
     recordRun(r){ data.runs = [r, ...data.runs].slice(0, 25); data.life.runs++; data.life.kills += r.kills; data.life.time += r.t;
-      if (r.win){ data.winsBy[r.cid] = (data.winsBy[r.cid] || 0) + 1; if (r.heat >= data.heat && data.heat < HEAT_MAX) data.heat = r.heat + 1; } save(); },
+      if (r.win){ data.winsBy[r.cid] = (data.winsBy[r.cid] || 0) + 1; data.heat = Math.min(HEAT_MAX, Math.max(data.heat, r.heat + 1)); } save(); },
     patchLastRun(o){ const r = data.runs[0]; if (!r) return; data.life.kills += (o.kills ?? r.kills) - r.kills; data.life.time += (o.t ?? r.t) - r.t; Object.assign(r, o); save(); },
     get life(){ return data.life; }, get winsBy(){ return data.winsBy; },
     hasFeat: id => !!data.ach[id], featCount: () => Object.keys(data.ach).length,
     grantFeat(id, dna){ if (data.ach[id]) return false; data.ach[id] = Date.now(); data.dna += dna; save(); return true; },
     seen: (cat, k) => (data.seen[cat] || {})[k] || 0,
     mergeSeen(s){ for (const c in s){ const D = data.seen[c] = data.seen[c] || {}; for (const k in s[c]) D[k] = (D[k] || 0) + s[c][k]; } save(); },
-    get heatMax(){ return data.heat; },
-    get heatSel(){ return Math.min(data.heatSel, data.heat); }, set heatSel(v){ data.heatSel = v; save(); },
+    // wins from before Heat existed still unlock Heat 1
+    get heatMax(){ return Math.max(data.heat, data.best.wins > 0 ? 1 : 0); },
+    get heatSel(){ return Math.min(data.heatSel, this.heatMax); }, set heatSel(v){ data.heatSel = v; save(); },
     award(n, t, kills, win){ data.dna += n; data.best.t = Math.max(data.best.t, t); data.best.kills = Math.max(data.best.kills, kills); if (win) data.best.wins++; save(); },
   };
 })();
