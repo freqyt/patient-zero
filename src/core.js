@@ -36,7 +36,7 @@ const EVOS = {
   screech:{w:'jaws',      n:'Banshee Maw',   ic:'💀', d:'A huge shriek every 3.5s that hits 4x as hard.'},
   aura:   {w:'boom',      n:'Necrotic Nova', ic:'☢️', d:'Rot Cloud 40% wider, 2x damage; its victims burst.'},
   trail:  {w:'legs',      n:'Acid Stampede', ic:'🐾', d:'A wide, double-strength sludge trail and +15% speed.'},
-  alpha:  {w:'horde',     n:'Horde King',    ic:'👑', d:'+10 horde size and your horde hits 50% harder.'},
+  alpha:  {w:'horde',     n:'Horde King',    ic:'👑', d:'+6 horde size and your horde hits 50% harder.'},
 };
 // minion variants: the dead keep their gear
 const VAR = {
@@ -55,7 +55,7 @@ const MUTS = {
   trail:    {n:'Toxic Trail',     ic:'🧪', b:'Leave a streak of corrosive sludge behind you. Chasers who follow you wade through it.', u:'Wider, longer-lasting, nastier sludge.'},
   jaws:     {n:'Unhinged Jaw',    ic:'🦷', b:'+30% bite damage and longer reach.',              u:'+30% bite damage, more reach.'},
   contagion:{n:'Contagion',       ic:'🦠', b:'+10% chance that slain humans rise.',             u:'+10% infection chance.'},
-  horde:    {n:'Hive Mind',       ic:'🧠', b:'+5 max horde size.',                              u:'+5 max horde size.'},
+  horde:    {n:'Hive Mind',       ic:'🧠', b:'+3 max horde size.',                              u:'+3 max horde size.'},
   alpha:    {n:'Alpha Pheromone', ic:'👑', b:'Horde hits harder, moves faster, lasts longer.', u:'+20% horde dmg, +8% speed, +15% HP.'},
   boom:     {n:'Volatile Dead',   ic:'💥', b:'Your horde explodes when destroyed.',             u:'Bigger, deadlier explosions.'},
   hide:     {n:'Necrotic Hide',   ic:'🛡️', b:'+25 max HP and slow regeneration.',               u:'+25 max HP, faster regen.'},

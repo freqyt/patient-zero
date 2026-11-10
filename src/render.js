@@ -257,9 +257,14 @@ function render(){
     const s = corpseSprite(b.look); if (b.flip){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(s, -14, y-14); lg.restore(); } else lg.drawImage(s, x-14, y-14); }
   lg.globalAlpha = 1;
   // brains
-  for (const g of S.gems){ const B = g.big ? BRAIN_L : BRAIN_S, bob = Math.round(Math.sin(S.t*5 + g.x*0.05));
-    lg.fillStyle = 'rgba(10,4,16,.3)'; lg.fillRect(sx(g.x)-3, sy(g.y)+1, 6, 1);
-    lg.drawImage(B, sx(g.x) - (B.width>>1), sy(g.y) - B.height + bob); }
+  // three sizes by value: small (<4), big (4-14), mega (15+, drawn 2x with a glow); a pulse when brains fuse
+  for (const g of S.gems){ const mega = g.v >= 15, B = g.v >= 4 ? BRAIN_L : BRAIN_S, sc = mega ? 2 : 1;
+    const bob = Math.round(Math.sin(S.t*5 + g.x*0.05)), x = sx(g.x), y = sy(g.y), w = B.width*sc, h = B.height*sc;
+    lg.fillStyle = 'rgba(10,4,16,.3)'; lg.fillRect(x - (w>>1) + 1, y + 1, w - 2, 1);
+    if (mega){ lg.globalCompositeOperation = 'lighter'; band(lg, BAND.pink, x, y - h/2, 14 + Math.sin(S.t*4)*2, 0.35); lg.globalCompositeOperation = 'source-over'; lg.globalAlpha = 1; }
+    lg.drawImage(B, x - (w>>1), y - h + bob, w, h);
+    if (g.pulse > 0){ lg.fillStyle = '#ffd0e2'; const r = Math.round((0.3 - g.pulse)*40) + 3;
+      for (let i=0;i<8;i++){ const a = i/8*TAU; lg.fillRect(Math.round(x + Math.cos(a)*r), Math.round(y - h/2 + Math.sin(a)*r*0.7), 1, 1); } } }
   // shadows
   lg.fillStyle = 'rgba(12,6,18,.38)';
   const shadow = (e, rx, ry) => { pell(lg, sx(e.x), sy(e.y), rx, ry); };
@@ -515,7 +520,7 @@ function drawHUD(nt){
     if (S.evo[k]){ lg.fillStyle = (S.t*4|0)%2 ? '#ffe070' : '#c89a30'; lg.fillRect(x, y, 18, 1); lg.fillRect(x, y+17, 18, 1); lg.fillRect(x, y, 1, 18); lg.fillRect(x+17, y, 1, 18); }
     for (let j=0;j<MAXLV;j++){ lg.fillStyle = j < S.mods[k] ? '#9be03a' : '#3a2e44'; lg.fillRect(x+2+j*3, y+20, 2, 2); } }
 
-  if (S.banner){ const b = S.banner, el = 3.2 - b.t;
+  if (S.banner && S.state !== 'over'){ const b = S.banner, el = 3.2 - b.t;
     if (el > 0.08 || (S.t*20|0)%2){ const y = Math.round(LH*0.28), sc = textW(b.text,2) < LW-16 ? 2 : 1;
       lg.fillStyle = 'rgba(10,4,16,.7)'; lg.fillRect(0, y-6, LW, sc===2?32:24);
       lg.fillStyle = '#5a8a2a'; lg.fillRect(0, y-6, LW, 1); lg.fillRect(0, y+(sc===2?25:17), LW, 1);

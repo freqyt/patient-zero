@@ -31,14 +31,16 @@ function startGame(){
   // a few oblivious civilians already in view, so the hunt starts immediately
   for (let i=0;i<7;i++){ const a = rand(0,TAU), d = rand(110,200); spawnHuman('civ', S.player.x+Math.cos(a)*d, S.player.y+Math.sin(a)*d*0.7); }
   // DNA Lab: Patient Origin starts you with a small horde
-  for (let i=0;i<2*META.rank('origin');i++){ const a = rand(0,TAU); addMinion(S.player.x+Math.cos(a)*40, S.player.y+Math.sin(a)*30, 'civ', pick(LOOKS.civ)); }
+  for (let i=0;i<Math.min(hordeCap(), 2*META.rank('origin'));i++){ const a = rand(0,TAU); addMinion(S.player.x+Math.cos(a)*40, S.player.y+Math.sin(a)*30, 'civ', pick(LOOKS.civ)); }
   banner('THE OUTBREAK BEGINS', 'HUNT THE LIVING');
 }
 const L = k => S.mods[k] || 0;
 const E = k => !!S.evo[k];
 function nightAmt(){ const p = (S.t % 100)/100; return clamp((p-0.62)/0.05,0,1) * clamp((1-p)/0.04,0,1); }
 const infectChance = () => Math.min(0.95, 0.40 + 0.10*L('contagion') + 0.03*META.rank('virulence'));
-const hordeCap = () => 8 + 5*L('horde') + (E('alpha') ? 10 : 0);
+// a smaller horde of tougher zombies (cap 5 -> 20, +6 with Horde King)
+const hordeCap = () => 5 + 3*L('horde') + (E('alpha') ? 6 : 0);
+const HORDE_HP = 1.8, HORDE_DMG = 14;
 function banner(text, sub){ S.banner = {text, sub, t:3.2}; }
 function floatText(x,y,txt,col,crit){ S.texts.push({x,y,txt,col,t:crit ? 0.7 : 0.9, crit}); }
 function heal(v){ const p = S.player; p.hp = Math.min(p.maxHp, p.hp+v); }
@@ -123,7 +125,7 @@ function killHuman(h){
   else FX.corpse(h);
 }
 function addMinion(x,y,v,look){
-  const V = VAR[v], hm = 1 + 0.15*L('alpha');
+  const V = VAR[v], hm = (1 + 0.15*L('alpha')) * HORDE_HP;
   S.minions.push({x,y,v,r:V.r,hp:V.hp*hm,maxHp:V.hp*hm,atkCd:0,rt:0,target:null,slot:Math.random()*TAU,flash:0,
     look: zombieLook(look), rise:0.45, face:Math.PI/2, wob:Math.random()*TAU});
 }
@@ -529,7 +531,7 @@ function update(dt){
     const dx = tx-m.x, dy = ty-m.y, dl = Math.hypot(dx,dy);
     let spd = 118*GS*V.sp*as*(1+0.35*nt); if (d2(m,p) > 200*200) spd *= 1.6;
     if (dl > 4){ const s = Math.min(spd*dt, dl); m.x += dx/dl*s; m.y += dy/dl*s; m.face = Math.atan2(dy,dx); }
-    if (m.target && dl < m.r + m.target.r + 5 && m.atkCd <= 0){ m.atkCd = 0.7; dmgHuman(m.target, 8*V.dmg*am*(1+0.4*nt), 'minion'); }
+    if (m.target && dl < m.r + m.target.r + 5 && m.atkCd <= 0){ m.atkCd = 0.7; dmgHuman(m.target, HORDE_DMG*V.dmg*am*(1+0.4*nt), 'minion'); }
   });
   S.minions = S.minions.filter(m => m.hp > 0);
   S.maxHorde = Math.max(S.maxHorde, S.minions.length);
@@ -557,12 +559,28 @@ function update(dt){
 
   // brains
   const grab = 80*(1 + 0.2*META.rank('scent')), xpMul = 1 + 0.06*META.rank('appetite');
-  for (const g of S.gems){ const d = Math.sqrt(d2(g,p));
-    if (d < grab || g.pull){ g.pull = true; const s = Math.min(d, Math.max(420, d*3)*dt); g.x += (p.x-g.x)/(d||1)*s; g.y += (p.y-g.y)/(d||1)*s; }
+  // idle brains near each other slide together and fuse into one bigger brain (value is kept exactly)
+  S.mergeT = (S.mergeT || 0) - dt;
+  if (S.mergeT <= 0){ S.mergeT = 0.5;
+    const cells = new Map(), off = (S.mergeFlip = !S.mergeFlip) ? 40 : 0;   // shifting grid lets neighbours across cell borders fuse too
+    for (const g of S.gems){ if (g.pull || g.mergeTo || g.merged || (g.age||0) < 2.5) continue;
+      const k = Math.floor((g.x+off)/80)*100003 + Math.floor((g.y+off)/80); const a = cells.get(k);
+      if (!a) cells.set(k, g); else if (g.v > a.v){ a.mergeTo = g; cells.set(k, g); } else g.mergeTo = a; } }
+  for (const g of S.gems){
+    g.age = (g.age||0) + dt; if (g.pulse > 0) g.pulse -= dt;
+    const m = g.mergeTo; if (!m) continue;
+    if (m.got || m.merged || m.pull || g.pull){ g.mergeTo = null; continue; }
+    if (m.mergeTo){ g.mergeTo = m.mergeTo; continue; }   // follow chains to the final anchor
+    const md = Math.sqrt(d2(g,m));
+    if (md < 5){ m.v += g.v; g.merged = true; m.pulse = 0.3; m.age = 0; }
+    else { const s = Math.min(md, 240*dt); g.x += (m.x-g.x)/md*s; g.y += (m.y-g.y)/md*s; }
+  }
+  for (const g of S.gems){ if (g.merged) continue; const d = Math.sqrt(d2(g,p));
+    if (d < grab || g.pull){ g.mergeTo = null; g.pull = true; const s = Math.min(d, Math.max(420, d*3)*dt); g.x += (p.x-g.x)/(d||1)*s; g.y += (p.y-g.y)/(d||1)*s; }
     if (d < p.r+6){ g.got = true; S.xp += g.v*xpMul; SFX.play('pickup', 0.8, S.combo++); S.comboT = 0.6;
       while (S.xp >= S.xpNext){ S.xp -= S.xpNext; S.level++; S.pendingLv++; S.xpNext = Math.floor(4 + Math.pow(S.level,1.3)*2.2); } } }
   S.comboT -= dt; if (S.comboT <= 0) S.combo = 0;
-  S.gems = S.gems.filter(g => !g.got);
+  S.gems = S.gems.filter(g => !g.got && !g.merged);
   if (S.gems.length > 400) S.gems.splice(0, S.gems.length-400);
 
   for (const t of S.texts){ t.t -= dt; t.y -= (t.crit ? 40 : 24)*dt; }
