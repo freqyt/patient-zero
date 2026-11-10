@@ -10,6 +10,7 @@ function setState(st){
   $('title').classList.toggle('show', false);
   $('level').classList.toggle('show', st==='level');
   $('pause').classList.toggle('show', st==='pause');
+  if (st === 'pause') renderPause();
   $('over').classList.toggle('show', st==='over');
 }
 function startGame(cid){
@@ -711,8 +712,11 @@ addEventListener('blur', () => { for (const k in K) K[k] = false; resetStick(); 
 // ---------- input: touch (virtual stick + buttons) ----------
 const touch = {used:false, stick:null, id:null, ox:0, oy:0};
 function lowXY(e){ return [e.clientX*DPR/SCALE, e.clientY*DPR/SCALE]; }
-function touchButtons(){ return [{id:'eat', x:LW-26, y:LH-34, r:17, label:'EAT'}, {id:'snd', x:LW-62, y:20, r:9, label: SFX.muted ? 'OFF' : 'SND'}]; }
+function touchButtons(){ return [{id:'eat', x:LW-26, y:LH-34, r:17, label:'EAT'}]; }
 cv.addEventListener('pointerdown', e => {
+  // the pause button works for mouse and touch alike (generous hit area for thumbs)
+  if (S && S.state === 'play'){ const [x, y] = lowXY(e), b = PAUSE_BTN();
+    if (x > b.x-5 && x < b.x+b.w+5 && y > b.y-5 && y < b.y+b.h+5){ e.preventDefault(); setState('pause'); return; } }
   if (e.pointerType === 'mouse') return;
   touch.used = true; e.preventDefault();
   if (!S || S.state!=='play') return;
@@ -756,7 +760,28 @@ $('labBtn').onclick = () => openShop('title');
 $('labBtn2').onclick = () => openShop('over');
 $('shopBack').onclick = closeShop;
 $('reroll').onclick = rerollLevel;
-$('pause').onclick = () => { if (S && S.state==='pause') setState('play'); };
+$('resumeBtn').onclick = () => { if (S && S.state==='pause') setState('play'); };
+$('soundBtn').onclick = () => { SFX.toggle(); $('soundBtn').textContent = 'SOUND: ' + (SFX.muted ? 'OFF' : 'ON'); };
+let giveUpArmed = false;
+$('quitBtn').onclick = () => { if (!giveUpArmed){ giveUpArmed = true; $('quitBtn').textContent = 'TAP AGAIN'; return; } giveUpArmed = false; gameOver(false); };
+// pause screen: run stats plus every weapon and item with its level
+function renderPause(){
+  giveUpArmed = false; $('quitBtn').textContent = 'GIVE UP'; $('soundBtn').textContent = 'SOUND: ' + (SFX.muted ? 'OFF' : 'ON');
+  const mm = Math.floor(S.t/60), ss = String(Math.floor(S.t%60)).padStart(2,'0'), img = c => `<img src="${c.toDataURL()}" alt="">`;
+  const stat = (k, v, c) => `<span>${k} <b style="color:${c||'#f6f0e0'}">${v}</b></span>`;
+  const dmgMul = (1 + 0.12*L('might')) * (S.ch.dmg || 1);
+  const stats = [stat('TIME', mm+':'+ss), stat('KILLS', S.kills), stat('LEVEL', S.level, '#ff9ccc'), stat('HORDE', hordeCount()+'/'+hordeCap(), '#9be03a'),
+    stat('REROLLS', S.rerolls, '#c8d8ff'), stat('LUCK', luck(), '#7aff7a'), stat('ATTACK SPEED', '+'+Math.round((AS()-1)*100)+'%', '#ffe84a'),
+    stat('DAMAGE', '+'+Math.round((dmgMul-1)*100)+'%', '#ff9a7a'), stat('HP', Math.ceil(S.player.hp)+'/'+S.player.maxHp, '#ff7a8a')].join('');
+  const row = k => { const ev = S.evo[k], nm = ev ? EVOS[k].n : MUTS[k].n, lv = L(k);
+    return `<div class="mrow${ev ? ' ev' : ''}">${img(mutIcon(k))}<div class="mn">${nm}${ev ? ' <small>EVOLVED</small>' : ''}</div>
+      <div class="mp">${'<i class="on"></i>'.repeat(lv)}${'<i></i>'.repeat(MAXLV-lv)}</div><div class="ml">LV ${lv}</div></div>`; };
+  const list = (title, keys, cap) => `<div class="sect"><div class="sh">${title} ${keys.length}/${cap}</div>${keys.map(row).join('')}${
+    '<div class="mrow empty"><div></div><div class="mn">EMPTY SLOT</div></div>'.repeat(Math.max(0, cap - keys.length))}</div>`;
+  const own = Object.keys(S.mods);
+  $('pauseStats').innerHTML = `<div class="sect"><div class="sh">${S.ch.n}</div><div class="misc">${stats}</div></div>` +
+    list('WEAPONS', own.filter(isWeapon), slotsW()) + list('ITEMS', own.filter(k => !isWeapon(k)), slotsI());
+}
 refreshTitleDna();
 let last = performance.now();
 function frame(now){

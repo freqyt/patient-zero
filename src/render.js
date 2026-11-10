@@ -504,12 +504,10 @@ function drawHUD(nt){
   pcirc(lg, Math.round(sx0 + sw*ph), sy0+1, 2, '#170d1c'); pcirc(lg, Math.round(sx0 + sw*ph), sy0+1, 1, night ? '#c8d8ff' : '#ffd860');
   if (night && (S.t*2|0)%2) ptext(lg, 'NIGHT', tcx, sy0+5, '#9ab0ff', {align:'center', shadow:'#170d1c'});
 
-  win(LW-50,6,47,48);
-  lg.drawImage(ICON.skull, LW-46, 10); ptext(lg, S.kills, LW-7, 10, '#f0e8e0', {align:'right'});
-  ptext(lg, 'LV', LW-46, 21, '#ff9ccc'); ptext(lg, S.level, LW-7, 21, '#ff9ccc', {align:'right'});
-  lg.drawImage(ITEM_SPR.dice, LW-47, 30); ptext(lg, S.rerolls, LW-7, 32, '#c8d8ff', {align:'right'});
-  lg.drawImage(ICON.clover, LW-46, 42); ptext(lg, luck(), LW-7, 42, '#7aff7a', {align:'right'});
-  drawMinimap(LW-50, 57, 47, 38);
+  // top-right: minimap, kill counter under it, pause button to the left (other stats live in the pause screen)
+  drawMinimap(LW-50, 6, 47, 38);
+  win(LW-50, 46, 47, 14); lg.drawImage(ICON.skull, LW-46, 49); ptext(lg, S.kills, LW-7, 49, '#f0e8e0', {align:'right'});
+  { const b = PAUSE_BTN(); win(b.x, b.y, b.w, b.h); lg.fillStyle = '#e8e0d0'; lg.fillRect(b.x+4, b.y+3, 2, b.h-6); lg.fillRect(b.x+b.w-6, b.y+3, 2, b.h-6); }
 
   const boss = S.humans.find(h => h.boss);
   if (boss){ const bw = Math.min(160, LW-24), bx = Math.round(LW/2 - bw/2), by = narrow ? 70 : 38;
@@ -818,3 +816,5 @@ function slotRow(ks, cap, y, on, off){
     if (S.evo[k]){ lg.fillStyle = (S.t*4|0)%2 ? '#ffe070' : '#c89a30'; lg.fillRect(x, y, 18, 1); lg.fillRect(x, y+17, 18, 1); lg.fillRect(x, y, 1, 18); lg.fillRect(x+17, y, 1, 18); }
     for (let j=0;j<MAXLV;j++){ lg.fillStyle = j < S.mods[k] ? '#9be03a' : '#3a2e44'; lg.fillRect(x+2+j*3, y+20, 2, 2); } }
 }
+
+const PAUSE_BTN = () => ({x: LW-66, y: 6, w: 13, h: 13});
