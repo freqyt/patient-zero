@@ -8,7 +8,7 @@ function edgePos(margin){
   return [p.x + (Math.random()<.5 ? -hw : hw), p.y + rand(-hh,hh)];
 }
 function spawnHuman(type, x, y){
-  const T = HT[type], sc = (T.boss ? 1 + S.t/400 : 1 + S.t/300) * (1 + 0.1*curse());
+  const T = HT[type], sc = (T.boss ? 1 + S.t/400 : 1 + S.t/300) * (1 + 0.1*curse()) * S.H.hp * endlessHp();
   if (x===undefined) [x, y] = edgePos(30);
   const h = {type, x, y, r:T.r, hp:T.hp*sc, maxHp:T.hp*sc, sp:T.sp*rand(0.9,1.1), xp:T.xp, boss:!!T.boss, air:!!T.air,
     cd:rand(0.5,1.5), cd2:2, cd3:0, burst:0, bt:0, flash:0, stun:0, kx:0, ky:0, face:Math.random()*TAU, wa:Math.random()*TAU,
@@ -33,7 +33,7 @@ function nearestHuman(o, maxD, forMinion){ let best = null, bd = maxD*maxD;
   for (const h of S.humans){ if (h.dead || (forMinion && (h.air || h.type==='hazard'))) continue; const d = d2(o,h); if (d<bd){ bd=d; best=h; } } return best; }
 // player-sourced hits can crit for double damage, shown as a pop-up number
 function crit(h, dmg){
-  if (Math.random() < 0.12 + 0.04*L('eyes') + 0.03*luck() && isTarget(h)){ dmg *= 2; floatText(h.x, h.y-10, Math.round(dmg)+'!', '#ffe060', true); }
+  if (Math.random() < 0.12 + 0.04*L('eyes') + 0.03*luck() && isTarget(h)){ dmg *= 2; floatText(h.x, h.y-10, Math.round(dmg)+'!', '#ffe060', true); S.texts[S.texts.length-1].num = true; }
   return dmg;
 }
 function dmgHuman(h, dmg, src, quiet){
@@ -57,7 +57,7 @@ function killHuman(h){
   if (h.type==='crate'){ h.dead = true; breakCrate(h); return; }
   if (h.type==='hazard'){ h.dead = true; h.prop.live = false; h.prop.gone = true; S.shake = Math.max(S.shake, 8);
     explode(h.x, h.y, h.sub==='pump' ? 105 : 80, 70 + S.t/5, 'zombie', 'fire', 'hazard'); return; }
-  h.dead = true; S.kills++; stat('kills', h.lastSrc || 'other', 1); SFX.at('die', h.x, h.y);
+  h.dead = true; S.kills++; stat('kills', h.lastSrc || 'other', 1); SFX.at('die', h.x, h.y); seen(h.boss ? 'b' : 'e', h.type);
   if (h.elite) eliteDeath(h);
   FX.blood(h.x,h.y,h.boss?30:8,false);
   S.gems.push({x:h.x, y:h.y, v:h.xp, big:h.boss || h.xp>=4});
@@ -67,7 +67,7 @@ function killHuman(h){
   if (h.boss){
     heal(60, 'boss'); S.shake = 16;
     for (let i=0;i<(h.type==='heli'?6:2);i++) FX.explosion(h.x+rand(-40,40), h.y+rand(-30,20), rand(80,140), 'fire');
-    if (h.type==='heli'){ S.winT = 2.8; banner('GUNSHIP DOWN', 'THE CITY IS YOURS'); SFX.play('nuke'); }
+    if (h.type==='heli' && !S.endless){ S.winT = 2.8; banner('GUNSHIP DOWN', 'THE CITY IS YOURS'); SFX.play('nuke'); }
     else { S.st.bossKills = (S.st.bossKills||0) + 1; banner(BOSS_NAME[h.type]+' DOWN','IT DROPPED A BOSS CHEST'); S.items.push({k:'chest', x:h.x, y:h.y, t:1e9, seed:Math.random(), pop:0.5}); }
     return;
   }
@@ -82,7 +82,7 @@ function addMinion(x,y,v,look){
 }
 function hurtMinion(m, dmg){
   if (m.hp<=0) return;
-  m.hp -= dmg; m.flash = 0.07;
+  m.hp -= dmg*S.H.dmg; m.flash = 0.07;
   if (m.hp <= 0){
     FX.blood(m.x,m.y,7,true); SFX.at('squish', m.x, m.y); S.st.lost++;
     const lb = L('boom');
@@ -93,7 +93,8 @@ function hurtMinion(m, dmg){
 function hurtPlayer(dmg, src){
   const p = S.player; if (S.winT > 0) return;
   if (E('spikes')) dmg *= 0.65;
-  dmg *= (1 - 0.04*L('chitin')) * (1 - (S.ch.armor || 0));
+  dmg *= (1 - 0.04*L('chitin')) * (1 - (S.ch.armor || 0)) * S.H.dmg;
+  if (S.firstHit === null) S.firstHit = S.t; S.lastHit = src || 'other';
   stat('taken', src || 'other', Math.min(dmg, Math.max(0, p.hp)));
   SFX.play('hurt'); p.hp -= dmg; p.flash = 0.1; S.shake = Math.min(8, S.shake + dmg*0.5);
   if (p.hp <= 0){ p.hp = 0; gameOver(false); }
@@ -129,13 +130,27 @@ function hfire(h, ang, spd, dmg, opts){
 function gameOver(win){
   SFX.play(win ? 'win' : 'gameover'); MUSIC.setMode('title');
   setState('over');
-  const dna = META.runReward(S.kills, S.level, S.t, win) + S.bonusDna; META.award(dna, S.t, S.kills, win);
-  $('overTitle').textContent = win ? 'THE CITY HAS FALLEN' : 'YOU WERE PUT DOWN';
-  $('overTitle').style.color = win ? '#9be03a' : '#ff5a5a';
-  $('overSub').textContent = win ? 'The gunship burns. The streets belong to the dead.' : 'Patient Zero is gone... but the infection lingers.';
-  const mm = Math.floor(S.t/60), ss = String(Math.floor(S.t%60)).padStart(2,'0');
-  $('overStats').innerHTML = `TIME <span>${mm}:${ss}</span> &middot; LEVEL <span>${S.level}</span><br>DEVOURED <span>${S.kills}</span> &middot; DNA <span>+${dna}</span>`;
+  let feats;
+  if (S.endless){ endEndless(); finishRun(); feats = checkFeats(true); }
+  else {
+    S.won = win;
+    const dna = Math.round((META.runReward(S.kills, S.level, S.t, win) + S.bonusDna) * S.H.dna); META.award(dna, S.t, S.kills, win);
+    $('overTitle').textContent = win ? 'THE CITY HAS FALLEN' : 'YOU WERE PUT DOWN';
+    $('overTitle').style.color = win ? '#9be03a' : '#ff5a5a';
+    $('overSub').textContent = win ? 'The gunship burns. The streets belong to the dead.' : 'Patient Zero is gone... but the infection lingers.';
+    const mm = Math.floor(S.t/60), ss = String(Math.floor(S.t%60)).padStart(2,'0');
+    $('overStats').innerHTML = `TIME <span>${mm}:${ss}</span> &middot; LEVEL <span>${S.level}</span><br>DEVOURED <span>${S.kills}</span> &middot; DNA <span>+${dna}</span>` +
+      (S.heat ? ` &middot; <span style="color:${HEAT_COL[S.heat]}">HEAT ${S.heat}</span>` : '');
+    checkUnlocks(win);
+    META.recordRun({at:Date.now(), cid:S.cid, win, t:Math.floor(S.t), kills:S.kills, level:S.level, dna, heat:S.heat, killer: win ? null : S.lastHit, build:runBuild(), wave:0});
+    finishRun(); feats = checkFeats(win);
+  }
   $('overDetail').innerHTML = statsHTML();
-  checkUnlocks(win);
-  $('overDna').innerHTML = `DNA BANK: ${META.dna}` + (S.newChars.length ? `<br><span style="color:#ffe070">UNLOCKED: ${S.newChars.join(', ')}</span>` : '');
+  $('overDna').innerHTML = `DNA BANK: ${META.dna}` + (S.newChars.length ? `<br><span style="color:#ffe070">UNLOCKED: ${S.newChars.join(', ')}</span>` : '') +
+    feats.map(f => `<br><span style="color:#ffe070">FEAT: ${f.n} +${f.dna} DNA</span>`).join('');
+  $('endlessBtn').style.display = win && !S.endless ? '' : 'none';
 }
+// weapons and items at the end of a run, evolved ones marked with *
+const runBuild = () => Object.keys(S.mods).map(k => (S.evo[k] ? '*' : '') + k);
+// save this run's codex discoveries
+function finishRun(){ META.mergeSeen(S.seen); for (const c in S.seen) S.seen[c] = {}; }

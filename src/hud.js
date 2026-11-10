@@ -34,7 +34,9 @@ function drawHUD(nt){
 
   const narrow = LW < 300, tcx = narrow ? 55 : Math.round(LW/2), tcy = narrow ? 48 : 6;
   const rem = Math.max(0, GAME_LEN - S.t), mm = Math.floor(rem/60), ss = String(Math.floor(rem%60)).padStart(2,'0');
-  if (S.overtime) { if ((S.t*3|0)%2) ptext(lg, 'KILL IT', tcx, tcy, '#ff5a4a', {align:'center', scale:2, shadow:'#170d1c'}); }
+  if (S.endless){ const r = Math.max(0, S.endless.next - S.t);
+    ptext(lg, `W${S.endless.wave} ${Math.floor(r/60)}:${String(Math.floor(r%60)).padStart(2,'0')}`, tcx, tcy, '#c8a0ff', {align:'center', scale:2, shadow:'#170d1c'}); }
+  else if (S.overtime) { if ((S.t*3|0)%2) ptext(lg, 'KILL IT', tcx, tcy, '#ff5a4a', {align:'center', scale:2, shadow:'#170d1c'}); }
   else ptext(lg, `${mm}:${ss}`, tcx, tcy, '#f6f0e0', {align:'center', scale:2, shadow:'#170d1c'});
   const sw = 44, sx0 = tcx - sw/2, sy0 = tcy + 18, ph = (S.t % 100)/100;
   lg.fillStyle = '#0c0810'; lg.fillRect(sx0-1, sy0-1, sw+2, 4);
@@ -76,7 +78,7 @@ function drawHUD(nt){
   if (boss) edgeArrow(boss.x, boss.y, '#ff4a3a');
 
   const low = p.hp/p.maxHp < 0.3;
-  if (p.flash > 0 || (low && (S.t*3|0)%2)){ lg.globalAlpha = p.flash > 0 ? 0.9 : 0.5; lg.drawImage(tintedVig(),0,0); lg.globalAlpha = 1; }
+  if (p.flash > 0 || (low && (S.t*3|0)%2)){ lg.globalAlpha = (p.flash > 0 ? 0.9 : 0.5)*(0.3 + 0.7*SET.flash); lg.drawImage(tintedVig(),0,0); lg.globalAlpha = 1; }
   drawTouchUI();
 }
 let tvCache = null, tvKey = '';

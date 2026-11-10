@@ -105,7 +105,7 @@ function update(dt){
   updateContent(dt, p);   // new mutations, spore mines, cure gas, threat banners, Bone Gatling (content.js)
 
   // spawning & bosses
-  const rate = 0.75 * Math.min(1.8 + S.t/50, 10) * (isNight ? 0.85 : 1) * (1 + 0.12*curse());
+  const rate = 0.75 * Math.min(1.8 + S.t/50, 10) * (isNight ? 0.85 : 1) * (1 + 0.12*curse()) * S.H.spawn * endlessRate();
   S.spawnAcc += dt*rate;
   while (S.spawnAcc >= 1){ S.spawnAcc--; if (S.humans.length < 220) spawnHuman(pickType()); }
   if (S.t >= S.nextCrowd){ S.nextCrowd += 50; spawnCrowd(); }
@@ -113,7 +113,8 @@ function update(dt){
   if (S.t >= 540 && !S.bosses.heli){ S.bosses.heli = true; const [x,y] = edgePos(60); spawnHuman('heli', x, y);
     banner('GUNSHIP INBOUND','DESTROY IT TO TAKE THE CITY'); SFX.play('alarm'); }
   if (S.t >= 555 && !S.finalWave){ S.finalWave = true; for (let i=0;i<14;i++) spawnHuman(i%3 ? 'soldier' : 'riot'); }
-  if (S.t >= GAME_LEN && !S.overtime && S.winT <= 0){ S.overtime = true; banner('OVERTIME','THE GUNSHIP MUST FALL'); }
+  if (S.endless) updateEndless(dt);
+  else if (S.t >= GAME_LEN && !S.overtime && S.winT <= 0){ S.overtime = true; banner('OVERTIME','THE GUNSHIP MUST FALL'); }
   if (S.crowd){ S.crowd.t -= dt; if (S.crowd.t<=0) S.crowd = null; }
 
   updateHumans(dt, p, nt);

@@ -3,7 +3,7 @@
 function updateHumans(dt, p, nt){
   const viewR = Math.hypot(VW,VH)/2;
   // humans move at half pace, creeping up to +25% faster by the end of the run
-  const hsp = GS * (1 + 0.25*Math.min(S.t, GAME_LEN)/GAME_LEN) * (1 + 0.04*curse());
+  const hsp = GS * (1 + 0.25*Math.min(S.t, GAME_LEN)/GAME_LEN) * (1 + 0.04*curse()) * S.H.speed;
   for (const h of S.humans){
     if (h.dead) continue;
     const fz = h.elite==='frenzied' ? 1.8 : 1; h.flash -= dt; h.cd -= dt*0.75*fz; h.cd2 -= dt*0.75*fz; h.cd3 -= dt;

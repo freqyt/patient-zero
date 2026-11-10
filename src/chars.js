@@ -66,6 +66,7 @@ function openChars(from){
 function closeChars(){ $('chars').classList.remove('show'); refreshTitleDna(); $(charsReturn).classList.add('show'); }
 function pickChar(id){ selChar = id; try { localStorage.setItem('pz-char', id); } catch (e) {} $('chars').classList.remove('show'); startGame(id); }
 function renderChars(){
+  renderHeat();
   const el = $('charGrid'); el.innerHTML = '';
   for (const id of CHAR_ORDER){
     const C = CHARS[id], open = META.hasChar(id);

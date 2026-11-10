@@ -36,13 +36,13 @@ const ELITE = {armored:{c:'#a8c0d8', n:'ARMORED'}, swift:{c:'#7ad0ff', n:'SWIFT'
   explosive:{c:'#ff8a3a', n:'VOLATILE'}, frenzied:{c:'#ff4a6a', n:'FRENZIED'}};
 function maybeElite(h){
   if (S.t < 50 || h.type === 'civ') return;
-  if (Math.random() > Math.min(0.1, 0.02 + S.t/600*0.08)) return;
+  if (Math.random() > Math.min(0.1, 0.02 + S.t/600*0.08)*S.H.elite) return;
   const a = pick(Object.keys(ELITE)); h.elite = a;
   h.hp = h.maxHp = h.maxHp*3.5; h.xp *= 5; h.r = Math.round(h.r*1.15); h.dmgMul = 1.5;
   if (a === 'swift') h.sp *= 1.6;
 }
 function eliteDeath(h){
-  S.st.elites = (S.st.elites||0) + 1;
+  S.st.elites = (S.st.elites||0) + 1; seen('x', h.elite);
   if (Math.random() < 0.35 + 0.05*luck()){ spawnItem(pickItemType(), h.x, h.y); S.items[S.items.length-1].pop = 0.4; }
   if (h.elite === 'explosive') explode(h.x, h.y, 70, 18, 'human', null, 'elite');
 }

@@ -26,7 +26,7 @@ function breakCrate(h){
   S.items[S.items.length-1].pop = 0.4;
 }
 function useItem(it){
-  const p = S.player; stat('items', it.k, 1);
+  const p = S.player; stat('items', it.k, 1); seen('i', it.k);
   switch (it.k){
     case 'heart': heal(30 + p.maxHp*0.2, 'heart'); FX.blood(p.x, p.y, 8, false); SFX.play('eat'); floatText(p.x, p.y, '+HEALTH', '#ff7a8a'); break;
     case 'magnet': for (const g of S.gems){ g.pull = true; g.mag = true; }
@@ -44,7 +44,7 @@ function openChest(){
   const p = S.player; SFX.play('chest'); S.flashT = 0.45; S.shake = 6;
   const evos = Object.keys(EVOS).filter(k => L(k) >= maxLv(k) && L(EVOS[k].w) > 0 && !E(k));
   let msg;
-  if (evos.length){ const b = pick(evos); S.evo[b] = true; S.pendingLv += 2; msg = 'FREE EVOLUTION: ' + EVOS[b].n.toUpperCase(); }
+  if (evos.length){ const b = pick(evos); S.evo[b] = true; seen('v', b); S.gotAt['evo:'+b] = S.t; S.pendingLv += 2; msg = 'FREE EVOLUTION: ' + EVOS[b].n.toUpperCase(); }
   else { S.pendingLv += 3; msg = '+3 FREE MUTATIONS'; }
   heal(p.maxHp, 'chest'); S.bonusDna += 40;
   for (let i=0;i<18;i++){ const a = rand(0,TAU), d = rand(30,110); S.gems.push({x:p.x+Math.cos(a)*d, y:p.y+Math.sin(a)*d*0.7, v:3, big:true}); }

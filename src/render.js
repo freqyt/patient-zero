@@ -227,9 +227,9 @@ function render(){
     drawSorted();
     lighting(0.95); post(0.95); blit(); return;
   }
-  const p = S.player, nt = nightAmt(), shk = Math.round(rand(-S.shake,S.shake)/2);
+  const p = S.player, nt = nightAmt(), sk = S.shake*SET.shake, shk = Math.round(rand(-sk,sk)/2);
   cam.x = p.x - VW/2; cam.y = p.y - VH/2;
-  cpx = Math.round(cam.x/2) + shk; cpy = Math.round(cam.y/2) + Math.round(rand(-S.shake,S.shake)/2);
+  cpx = Math.round(cam.x/2) + shk; cpy = Math.round(cam.y/2) + Math.round(rand(-sk,sk)/2);
   const props = drawGround();
 
   // toxic sludge trail: merged blobs on their own layer
@@ -317,9 +317,9 @@ function render(){
   }
   lighting(nt);
   // floating text
-  for (const t of S.texts){ if (t.t < 0.15 && (S.t*30|0)%2) continue; ptext(lg, t.txt, sx(t.x), sy(t.y)-(t.crit ? 24 : 30), t.col, {align:'center', shadow: t.crit ? '#5a1a00' : '#170d1c'}); }
+  for (const t of S.texts){ if (t.num && !SET.numbers) continue; if (t.t < 0.15 && (S.t*30|0)%2) continue; ptext(lg, t.txt, sx(t.x), sy(t.y)-(t.crit ? 24 : 30), t.col, {align:'center', shadow: t.crit ? '#5a1a00' : '#170d1c'}); }
   post(nt);
-  if (S.flashT > 0){ lg.globalAlpha = Math.min(1, S.flashT/0.7)*0.85; lg.fillStyle = '#d8ffb0'; lg.fillRect(0,0,LW,LH); lg.globalAlpha = 1; }
+  if (S.flashT > 0 && SET.flash > 0){ lg.globalAlpha = Math.min(1, S.flashT/0.7)*0.85*SET.flash; lg.fillStyle = '#d8ffb0'; lg.fillRect(0,0,LW,LH); lg.globalAlpha = 1; }
   drawHUD(nt);
   blit();
 }

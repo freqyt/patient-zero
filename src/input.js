@@ -6,6 +6,9 @@ addEventListener('keydown', e => {
   if (k==='m'){ SFX.toggle(); return; }
   if (k===' ' || k.startsWith('arrow')) e.preventDefault();
   if ($('shop').classList.contains('show')){ if (k==='escape') closeShop(); return; }
+  if (optionsOpen()){ if (k==='escape') closeOptions(); return; }
+  if (archiveOpen()){ if (k==='escape') closeArchive(); return; }
+  if ($('saveio').classList.contains('show')){ if (k==='escape') closeSave(); return; }
   if ($('chars').classList.contains('show')){ if (k==='escape') closeChars(); if (k==='enter') pickChar(selChar); return; }
   if (!S){ if (k==='enter' || k===' ') openChars('title'); return; }
   if (S.state==='play'){
@@ -13,7 +16,7 @@ addEventListener('keydown', e => {
     if (k==='p' || k==='escape') setState('pause');
   } else if (S.state==='pause'){ if (k==='p' || k==='escape') setState('play'); }
   else if (S.state==='level'){ if (k>='1' && k<='5'){ const c = $('cards').children[+k-1]; if (c) c.click(); } if (k==='r') rerollLevel(); }
-  else if (S.state==='over'){ if (k==='r') startGame(S.cid); if (k==='enter') openChars('over'); }
+  else if (S.state==='over'){ if (k==='r') startGame(S.cid); if (k==='enter') openChars('over'); if (k==='e' && S.won && !S.endless) startEndless(); }
 });
 addEventListener('keyup', e => { K[e.key.toLowerCase()] = false; });
 addEventListener('blur', () => { for (const k in K) K[k] = false; resetStick(); if (S && S.state==='play') setState('pause'); });

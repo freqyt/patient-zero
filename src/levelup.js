@@ -64,8 +64,8 @@ function choose(k){
   SFX.play('select');
   const p = S.player;
   if (k==='_heal') heal(50, 'feast');
-  else if (k.startsWith('evo:')){ const b = k.slice(4); S.evo[b] = true; S.gotAt['evo:'+b] = S.t; SFX.play('evolve'); banner('EVOLVED!', EVOS[b].n.toUpperCase()); S.flashT = 0.3; }
-  else { if (!S.mods[k]) S.gotAt[k] = S.t; S.mods[k] = L(k) + 1; if (k==='hide'){ p.maxHp += 25; heal(25, 'hide'); } }
+  else if (k.startsWith('evo:')){ const b = k.slice(4); S.evo[b] = true; seen('v', b); S.gotAt['evo:'+b] = S.t; SFX.play('evolve'); banner('EVOLVED!', EVOS[b].n.toUpperCase()); S.flashT = 0.3; }
+  else { if (!S.mods[k]){ S.gotAt[k] = S.t; seen('m', k); } S.mods[k] = L(k) + 1; if (k==='hide'){ p.maxHp += 25; heal(25, 'hide'); } }
   S.pendingLv--;
   if (S.pendingLv > 0) openLevel(); else setState('play');
 }

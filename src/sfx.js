@@ -3,7 +3,7 @@
 // Aimed at a 16-bit "sampled" B-movie feel rather than chip beeps: filtered noise, low thumps,
 // formant-filtered voices for screams/groans, slight bit-crush grit, and an SNES-style echo bus.
 const SFX = (() => {
-  let ac = null, dry = null, wet = null, mus = null, nb = null, muted = false;
+  let ac = null, dry = null, wet = null, mus = null, nb = null, muted = false, sfxBus = null, echoBus = null;
   try { muted = localStorage.getItem('pz-muted') === '1'; } catch (e) {}
   const last = {};
 
@@ -23,8 +23,11 @@ const SFX = (() => {
       dl.delayTime.value = 0.19; fb.gain.value = 0.38; dlf.type = 'lowpass'; dlf.frequency.value = 1700;
       wet.connect(dl); dl.connect(dlf); dlf.connect(fb); fb.connect(dl); dlf.connect(master);
       dry.connect(crush); crush.connect(tone); tone.connect(master);
+      // sound-effect volume (Options): every effect goes through these two, music does not
+      sfxBus = ac.createGain(); sfxBus.gain.value = SET.sfx/100; sfxBus.connect(dry);
+      echoBus = ac.createGain(); echoBus.gain.value = SET.sfx/100; echoBus.connect(wet);
       // music bus: clean (no crush), with a send into the shared echo
-      mus = ac.createGain(); mus.gain.value = muted ? 0 : 0.3; mus.connect(master);
+      mus = ac.createGain(); mus.gain.value = musGain(); mus.connect(master);
       const ms = ac.createGain(); ms.gain.value = 0.45; mus.connect(ms); ms.connect(wet);
       master.connect(comp); comp.connect(ac.destination);
       nb = ac.createBuffer(1, ac.sampleRate*2, ac.sampleRate);
@@ -33,7 +36,11 @@ const SFX = (() => {
     }
     if (ac.state === 'suspended') ac.resume();
   }
-  function route(node, echo){ node.connect(dry); if (echo) { const s = ac.createGain(); s.gain.value = echo; node.connect(s); s.connect(wet); } }
+  function route(node, echo){ node.connect(sfxBus); if (echo) { const s = ac.createGain(); s.gain.value = echo; node.connect(s); s.connect(echoBus); } }
+  const musGain = () => muted ? 0 : 0.3*SET.music/100;
+  // re-read the Options volumes (called while the sliders move)
+  function volumes(){ if (!ac) return; const t = ac.currentTime;
+    mus.gain.setTargetAtTime(musGain(), t, 0.05); sfxBus.gain.setTargetAtTime(SET.sfx/100, t, 0.05); echoBus.gain.setTargetAtTime(SET.sfx/100, t, 0.05); }
   // ---- surviving app switches (iOS Safari "interrupts" audio when the app is backgrounded) ----
   // Audio may only restart inside a user gesture, so every tap/key tries to resume it. If iOS left the
   // context unrecoverable, the next gesture rebuilds it from scratch (music & SFX pick up the new one).
@@ -196,7 +203,7 @@ const SFX = (() => {
     const v = clamp(1 - Math.hypot(x-S.player.x, y-S.player.y)/600, 0, 1);
     if (v > 0.25) play(name, 0.25 + 0.75*v, arg);
   }
-  function toggle(){ muted = !muted; if (mus) mus.gain.setTargetAtTime(muted ? 0 : 0.3, ac.currentTime, 0.05); try { localStorage.setItem('pz-muted', muted ? '1' : '0'); } catch (e) {}
+  function toggle(){ muted = !muted; if (mus) mus.gain.setTargetAtTime(musGain(), ac.currentTime, 0.05); try { localStorage.setItem('pz-muted', muted ? '1' : '0'); } catch (e) {}
     if (!muted){ init(); setTimeout(() => play('click'), 30); } return muted; }
-  return {init, play, at, toggle, get live(){ return live; }, get muted(){ return muted; }, get state(){ return ac ? ac.state : 'none'; }, get ctx(){ return ac; }, get musicBus(){ return mus; }, get noise(){ return nb; }};
+  return {init, play, at, toggle, volumes, get live(){ return live; }, get muted(){ return muted; }, get state(){ return ac ? ac.state : 'none'; }, get ctx(){ return ac; }, get musicBus(){ return mus; }, get noise(){ return nb; }};
 })();

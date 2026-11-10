@@ -103,6 +103,31 @@
   .mrow.empty .mn{color:#5a4a6a}
   .misc{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;color:var(--mute);line-height:1.6} .misc b{color:#f6f0e0;font-weight:normal} .misc .wide{grid-column:1/-1}
   @media (max-width:600px){ .srow{grid-template-columns:20px 1fr 52px 44px 38px;gap:6px} .srow.s2{grid-template-columns:20px 1fr 52px} .misc{grid-template-columns:1fr 1fr} .sn{font-size:8px} }
+  .heatrow{gap:6px;margin:0 0 4px} .heatrow .hl{font-size:10px;color:var(--mute);margin-right:6px}
+  .heat{font:inherit;font-size:11px;width:34px;height:30px;background:var(--panel);color:var(--hc);border:3px solid #4a3a5a;box-shadow:0 0 0 2px var(--ink)}
+  .heat.sel{border-color:var(--hc);background:#2a1a30} .heat.locked{opacity:.4;cursor:default;font-size:9px}
+  .heatdesc{margin:4px 0 6px;font-size:8px;max-width:560px;line-height:1.8;color:var(--mute)} .heatdesc .need{color:#8a7a6a}
+  .tabs .tab.on{background:#4e8a1e} .arch{max-height:62vh;overflow:auto}
+  .run{display:grid;grid-template-columns:54px 1fr auto;gap:4px 10px;align-items:center;padding:8px 0;border-bottom:2px dashed #3a2e44}
+  .run .res{font-size:8px;text-align:center;line-height:1.6} .run .res.w{color:var(--green)} .run .res.l{color:var(--red)} .run .res.e{color:#c8a0ff}
+  .run .who{color:#f6f0e0;line-height:1.7} .run .who small{display:block;color:var(--mute);font-size:7px}
+  .run .num{text-align:right;color:var(--mute);font-size:8px;line-height:1.7} .run .num b{color:#f6f0e0;font-weight:normal}
+  .run .bld{grid-column:2 / span 2;display:flex;gap:2px;flex-wrap:wrap} .run .bld img{width:18px;height:18px;image-rendering:pixelated}
+  .run .bld img.ev{outline:1px solid #e8c048}
+  .feat{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:7px 0;border-bottom:2px dashed #3a2e44;color:#5a4a6a}
+  .feat .fn{font-size:9px} .feat .fd{font-size:7px;line-height:1.6;grid-column:1} .feat .fr{grid-row:1 / span 2;grid-column:2;font-size:8px;align-self:center}
+  .feat.got{color:var(--mute)} .feat.got .fn{color:#ffe070} .feat.got .fr{color:var(--green)}
+  .cx{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin-bottom:12px}
+  .cxe{display:grid;grid-template-columns:26px 1fr;gap:8px;align-items:start;background:#140c1c;border:2px solid #3a2e44;padding:6px}
+  .cxe img{width:26px;height:26px;image-rendering:pixelated} .cxe .cn{color:#f6f0e0;font-size:8px;line-height:1.5}
+  .cxe .cd{color:var(--mute);font-size:7px;line-height:1.7;margin-top:3px} .cxe .cs{color:var(--green);font-size:7px;margin-top:3px;line-height:1.6}
+  .cxe.unk img{filter:brightness(0) opacity(.5)} .cxe.unk .cn{color:#5a4a6a}
+  .lifeline{color:var(--mute);line-height:2;margin-bottom:6px} .lifeline b{color:#f6f0e0;font-weight:normal}
+  .opts{width:min(520px,92vw);text-align:left;font-size:10px}
+  .opts label{display:grid;grid-template-columns:1fr 150px 46px;gap:10px;align-items:center;margin:4px 0 14px}
+  .opts label .btn{grid-column:2 / span 2;padding:8px 10px}
+  .opts input[type=range]{width:100%;accent-color:var(--green)} .opts span{text-align:right;color:var(--green)}
+  .opts .sl{font-size:7px;color:var(--mute);line-height:1.8}
   @media (hover:none){ .desk{display:none} }
   @media (hover:hover){ .mob{display:none} }
 </style>
@@ -126,7 +151,7 @@
   </div>
   <div id="titleDna" class="dna"></div>
   <div class="row"><button id="startBtn" class="btn"><span class="blink">&#9654;</span> RISE</button><button id="labBtn" class="btn alt">DNA LAB</button></div>
-  <div class="row"><button id="saveBtn" class="btn small">SAVE DATA</button></div>
+  <div class="row"><button id="archBtn" class="btn small alt">ARCHIVE</button><button id="optBtn" class="btn small">OPTIONS</button><button id="saveBtn" class="btn small">SAVE DATA</button></div>
 </div>
 
 <div id="level" class="ov">
@@ -140,7 +165,7 @@
 <div id="pause" class="ov">
   <h2>PAUSED</h2>
   <div id="pauseStats" class="box detail"></div>
-  <div class="row"><button id="resumeBtn" class="btn">RESUME</button><button id="soundBtn" class="btn small alt">SOUND: ON</button><button id="quitBtn" class="btn small">GIVE UP</button></div>
+  <div class="row"><button id="resumeBtn" class="btn">RESUME</button><button id="soundBtn" class="btn small alt">SOUND: ON</button><button id="optBtn2" class="btn small alt">OPTIONS</button><button id="quitBtn" class="btn small">GIVE UP</button></div>
 </div>
 
 <div id="over" class="ov">
@@ -149,12 +174,15 @@
   <div id="overStats" class="box stats"></div>
   <div id="overDetail" class="box detail"></div>
   <div id="overDna" class="dna"></div>
+  <div class="row"><button id="endlessBtn" class="btn alt" style="display:none">KEEP KILLING (ENDLESS)</button></div>
   <div class="row"><button id="againBtn" class="btn">RISE AGAIN</button><button id="labBtn2" class="btn alt">DNA LAB</button></div>
 </div>
 
 <div id="chars" class="ov">
   <h2>CHOOSE YOUR OUTBREAK</h2>
   <div class="sub" style="margin:0 0 8px">COMPLETE TASKS DURING A RUN TO UNLOCK NEW CHARACTERS</div>
+  <div id="heatRow" class="row heatrow"></div>
+  <div id="heatDesc" class="sub heatdesc"></div>
   <div id="charGrid" class="cards"></div>
   <div class="row"><button id="charsBack" class="btn small">BACK</button></div>
 </div>
@@ -174,6 +202,26 @@
   <div class="row"><button id="saveBack" class="btn small">BACK</button></div>
 </div>
 
+<div id="archive" class="ov">
+  <h2>ARCHIVE</h2>
+  <div class="row tabs"><button class="btn small tab" data-tab="runs">RUNS</button><button class="btn small tab" data-tab="feats">FEATS</button><button class="btn small tab" data-tab="codex">CODEX</button></div>
+  <div id="archBody" class="box detail arch"></div>
+  <div class="row"><button id="archBack" class="btn small">BACK</button></div>
+</div>
+
+<div id="options" class="ov">
+  <h2>OPTIONS</h2>
+  <div class="box opts">
+    <label>MUSIC<input id="optMusic" type="range" min="0" max="100" step="5"><span id="optMusicV"></span></label>
+    <label>SOUND FX<input id="optSfx" type="range" min="0" max="100" step="5"><span id="optSfxV"></span></label>
+    <label>SCREEN SHAKE<button id="optShake" class="btn small"></button></label>
+    <label>SCREEN FLASHES<button id="optFlash" class="btn small"></button></label>
+    <label>CRIT NUMBERS<button id="optNums" class="btn small"></button></label>
+    <div class="sl">M MUTES EVERYTHING. SETTINGS ARE SAVED ON THIS DEVICE AND IN SAVE CODES.</div>
+  </div>
+  <div class="row"><button id="optBack" class="btn small">BACK</button></div>
+</div>
+
 <div id="shop" class="ov">
   <h2>DNA LAB</h2>
   <div class="dna">DNA: <span id="shopDna">0</span> &nbsp;&middot;&nbsp; PERMANENT MUTATIONS FOR EVERY RUN</div>
@@ -181,25 +229,29 @@
   <div class="row"><button id="shopBack" class="btn small">BACK</button><button id="saveBtn2" class="btn small alt">SAVE DATA</button></div>
 </div>
 
-<script src="src/core.js?v=20261110154503"></script>
-<script src="src/sfx.js?v=20261110154503"></script>
-<script src="src/music.js?v=20261110154503"></script>
-<script src="src/pixel.js?v=20261110154503"></script>
-<script src="src/world.js?v=20261110154503"></script>
-<script src="src/render.js?v=20261110154503"></script>
-<script src="src/props.js?v=20261110154503"></script>
-<script src="src/hud.js?v=20261110154503"></script>
-<script src="src/meta.js?v=20261110154503"></script>
-<script src="src/chars.js?v=20261110154503"></script>
-<script src="src/content.js?v=20261110154503"></script>
-<script src="src/state.js?v=20261110154503"></script>
-<script src="src/combat.js?v=20261110154503"></script>
-<script src="src/levelup.js?v=20261110154503"></script>
-<script src="src/loot.js?v=20261110154503"></script>
-<script src="src/stats.js?v=20261110154503"></script>
-<script src="src/ai.js?v=20261110154503"></script>
-<script src="src/update.js?v=20261110154503"></script>
-<script src="src/input.js?v=20261110154503"></script>
-<script src="src/main.js?v=20261110154503"></script>
+<script src="src/core.js?v=20261110173951"></script>
+<script src="src/settings.js?v=20261110173951"></script>
+<script src="src/sfx.js?v=20261110173951"></script>
+<script src="src/music.js?v=20261110173951"></script>
+<script src="src/pixel.js?v=20261110173951"></script>
+<script src="src/world.js?v=20261110173951"></script>
+<script src="src/render.js?v=20261110173951"></script>
+<script src="src/props.js?v=20261110173951"></script>
+<script src="src/hud.js?v=20261110173951"></script>
+<script src="src/meta.js?v=20261110173951"></script>
+<script src="src/chars.js?v=20261110173951"></script>
+<script src="src/content.js?v=20261110173951"></script>
+<script src="src/state.js?v=20261110173951"></script>
+<script src="src/combat.js?v=20261110173951"></script>
+<script src="src/levelup.js?v=20261110173951"></script>
+<script src="src/loot.js?v=20261110173951"></script>
+<script src="src/heat.js?v=20261110173951"></script>
+<script src="src/endless.js?v=20261110173951"></script>
+<script src="src/stats.js?v=20261110173951"></script>
+<script src="src/archive.js?v=20261110173951"></script>
+<script src="src/ai.js?v=20261110173951"></script>
+<script src="src/update.js?v=20261110173951"></script>
+<script src="src/input.js?v=20261110173951"></script>
+<script src="src/main.js?v=20261110173951"></script>
 </body>
 </html>

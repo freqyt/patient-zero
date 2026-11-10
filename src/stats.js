@@ -60,7 +60,8 @@ function renderPause(){
   const dmgMul = (1 + 0.12*L('might')) * (S.ch.dmg || 1);
   const stats = [stat('TIME', mm+':'+ss), stat('KILLS', S.kills), stat('LEVEL', S.level, '#ff9ccc'), stat('HORDE', hordeCount()+'/'+hordeCap(), '#9be03a'),
     stat('REROLLS', S.rerolls, '#c8d8ff'), stat('LUCK', luck(), '#7aff7a'), stat('CURSE', curse(), '#c080ff'), stat('XP GAIN', '+'+Math.round((xpBonus()-1)*100)+'%', '#ff9ccc'), stat('ATTACK SPEED', '+'+Math.round((AS()-1)*100)+'%', '#ffe84a'),
-    stat('DAMAGE', '+'+Math.round((dmgMul-1)*100)+'%', '#ff9a7a'), stat('HP', Math.ceil(S.player.hp)+'/'+S.player.maxHp, '#ff7a8a')].join('');
+    stat('DAMAGE', '+'+Math.round((dmgMul-1)*100)+'%', '#ff9a7a'), stat('HP', Math.ceil(S.player.hp)+'/'+S.player.maxHp, '#ff7a8a'),
+    S.heat ? stat('HEAT', S.heat, HEAT_COL[S.heat]) : '', S.endless ? stat('WAVE', S.endless.wave, '#c8a0ff') : ''].join('');
   const row = k => { const ev = S.evo[k], nm = ev ? EVOS[k].n : MUTS[k].n, lv = L(k);
     return `<div class="mrow${ev ? ' ev' : ''}">${img(mutIcon(k))}<div class="mn">${nm}${ev ? ' <small>EVOLVED</small>' : ''}</div>
       <div class="mp">${'<i class="on"></i>'.repeat(lv)}${'<i></i>'.repeat(maxLv(k)-lv)}</div><div class="ml">LV ${lv}</div></div>`; };

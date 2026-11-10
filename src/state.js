@@ -30,6 +30,9 @@ function startGame(cid){
     plan:makeSpawnPlan(), bossPlan:shuffle(BOSS_POOL.slice()).slice(0,2), mines:[], cures:[], bosses:{}, maxHorde:0, wasNight:false, finalWave:false, winT:0, hazT:0, overtime:false,
   };
   S.combo = 0; S.comboT = 0;
+  S.heat = META.heatSel; S.H = HEAT(S.heat);
+  S.seen = {e:{}, b:{}, x:{}, m:Object.fromEntries(Object.keys(CH.start).map(k => [k, 1])), v:{}, i:{}};   // codex discoveries this run
+  S.firstHit = null; S.lastHit = null; S.endless = null; S.paid = false;
   SFX.init(); MUSIC.start(); MUSIC.setMode('day');
   setState('play');
   // a few oblivious civilians already in view, so the hunt starts immediately
@@ -50,9 +53,11 @@ const hordeCount = () => S.minions.reduce((a, m) => a + (m.husk && m.life ? 0 : 
 const HORDE_HP = 1.8, HORDE_DMG = 14;
 function banner(text, sub){ S.banner = {text, sub, t:3.2}; }
 function floatText(x,y,txt,col,crit){ S.texts.push({x,y,txt,col,t:crit ? 0.7 : 0.9, crit}); }
-function heal(v, src){ const p = S.player, before = p.hp; p.hp = Math.min(p.maxHp, p.hp+v); stat('heal', src || 'other', p.hp - before); }
+function heal(v, src){ const p = S.player, before = p.hp; p.hp = Math.min(p.maxHp, p.hp+v*S.H.heal); stat('heal', src || 'other', p.hp - before); }
 // per-run stat counters for the post-game breakdown
 function stat(cat, key, v){ if (v > 0) S.st[cat][key] = (S.st[cat][key] || 0) + v; }
+// codex: count a discovery this run (merged into the save when the run ends)
+function seen(cat, k){ S.seen[cat][k] = (S.seen[cat][k] || 0) + 1; }
 const isTarget = h => h.type !== 'crate' && h.type !== 'hazard';
 // luck: Lucky Rot levels + clovers picked up this run + DNA Lab Lucky Strain
 const luck = () => L('luck') + (S.luckBonus || 0) + META.rank('lucky');
