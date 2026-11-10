@@ -49,7 +49,8 @@ const MUSIC = (() => {
   }
   function tick(){
     const c = ctx(); if (!c || c.state !== 'running' || SFX.muted){ if (c) next = Math.max(next, c.currentTime); return; }
-    if (next < c.currentTime) next = c.currentTime + 0.05;
+    // after a suspend or a rebuilt audio context the clock jumps; re-anchor instead of stalling or bursting
+    if (next < c.currentTime || next > c.currentTime + 1) next = c.currentTime + 0.05;
     while (next < c.currentTime + 0.15){
       if (step % 16 === 0 && want !== mode){ mode = want; step = 0; }
       playStep(step, next); next += 60/SONGS[mode].bpm/4; step++;

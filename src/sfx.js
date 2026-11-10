@@ -34,6 +34,25 @@ const SFX = (() => {
     if (ac.state === 'suspended') ac.resume();
   }
   function route(node, echo){ node.connect(dry); if (echo) { const s = ac.createGain(); s.gain.value = echo; node.connect(s); s.connect(wet); } }
+  // ---- surviving app switches (iOS Safari "interrupts" audio when the app is backgrounded) ----
+  // Audio may only restart inside a user gesture, so every tap/key tries to resume it. If iOS left the
+  // context unrecoverable, the next gesture rebuilds it from scratch (music & SFX pick up the new one).
+  let needsRebuild = false;
+  function unlock(){
+    if (!ac || muted) return;
+    if (needsRebuild || ac.state === 'closed'){ needsRebuild = false; try { ac.close(); } catch (e) {} ac = null; init(); return; }
+    if (ac.state !== 'running'){
+      const p = ac.resume(); if (p && p.catch) p.catch(() => {});
+      setTimeout(() => { if (ac && ac.state !== 'running' && !document.hidden) needsRebuild = true; }, 350);
+    }
+  }
+  for (const ev of ['pointerdown','touchend','keydown','click']) addEventListener(ev, unlock, {passive:true, capture:true});
+  document.addEventListener('visibilitychange', () => {
+    if (!ac) return;
+    if (document.hidden){ if (ac.state === 'running') ac.suspend().catch(() => {}); }
+    else unlock();   // desktop browsers resume here; iOS waits for the next tap
+  });
+  addEventListener('pageshow', () => unlock());
   function env(g, t, a, d, v){ g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002,v), t+a); g.gain.exponentialRampToValueAtTime(0.0001, t+a+d); }
   // filtered oscillator voice
   function voice({type='sawtooth', f0, f1=f0, dur, vol, delay=0, att=0.005, lp=2000, lp1=lp, q=1, vib=0, echo=0, band}){
