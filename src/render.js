@@ -387,7 +387,7 @@ function lighting(nt){
     }
     for (const b of S.hb) if (b.fire) Ls.push({x:sx(b.x), y:sy(b.y)-8, r:16, spr:BAND.orange, a:0.8*b.t/0.5});
     for (const h of S.humans) if (h.type==='crate') Ls.push({x:sx(h.x), y:sy(h.y)-10, r:20, spr:BAND.warm, a:0.6});
-    for (const it of S.items) Ls.push({x:sx(it.x), y:sy(it.y)-8, r:22, spr:BAND[ITEM_BAND[it.k]], a:0.7});
+    for (const it of S.items) Ls.push({x:sx(it.x), y:sy(it.y)-8, r: it.k==='chest' ? 40 : 22, spr:BAND[ITEM_BAND[it.k]], a:0.7});
     if (S.player.saw > 0) Ls.push({x:sx(S.player.x), y:sy(S.player.y)-12, r:26, spr:BAND.orange, a:0.5});
     for (const b of S.pb) if (b.k==='spit') Ls.push({x:sx(b.x), y:sy(b.y)-12, r:12, spr:BAND.toxic, a:0.7});
     for (const l of S.lights) Ls.push({x:sx(l.x), y:sy(l.y)-10, r:l.r/2, spr:l.spr, a:l.a*l.t/l.max});
@@ -574,6 +574,19 @@ const ITEM_SPR = {
     'SW.......SD',
     'SS.......SD'], {R:'#d82838', L:'#ff7080', D:'#8a1420', S:'#c8ccd4', W:'#ffffff'}),
   saw: SAWF[0],
+  chest: itemSpr([
+    '..GGGGGGGGGGGG..',
+    '.GYYYYYYYYYYYYG.',
+    'GYLLLLLLLLLLLLYG',
+    'GYYYYYYYYYYYYYYG',
+    'GBBBBBBKKBBBBBBG',
+    'GWWWWWWKKWWWWWWG',
+    'GBBBBBBYYBBBBBBG',
+    'GBRBBBBYYBBBBRBG',
+    'GBBBBBBBBBBBBBBG',
+    'GBRBBBBBBBBBBRBG',
+    'GBBBBBBBBBBBBBBG',
+    '.GGGGGGGGGGGGGG.'], {G:'#a87a18', Y:'#e8c040', L:'#fff0a0', B:'#6a3e1a', W:'#8a5a2a', K:'#2a1a0a', R:'#c8a050'}),
   dice: itemSpr([
     '.WWWWWWW.',
     'WWWWWWWWS',
@@ -597,10 +610,11 @@ const ITEM_SPR = {
     '.CCCCCCCCC.',
     '..GG...G...'], {C:'#8a8e96', Y:'#e8c830', L:'#fff080', D:'#a08010', K:'#1a1a1a', G:'#8ae03a'}),
 };
-const ITEM_COL = {heart:'#ff6a7a', magnet:'#ff9ccc', saw:'#ffb040', bomb:'#9be03a', dice:'#c8d8ff'};
-const ITEM_BAND = {heart:'red', magnet:'pink', saw:'orange', bomb:'toxic', dice:'blue'};
+const ITEM_COL = {chest:'#ffe070', heart:'#ff6a7a', magnet:'#ff9ccc', saw:'#ffb040', bomb:'#9be03a', dice:'#c8d8ff'};
+const ITEM_BAND = {chest:'yellow', heart:'red', magnet:'pink', saw:'orange', bomb:'toxic', dice:'blue'};
 function drawItem(it){
   if (it.t < 5 && (S.t*8|0)%2) return;   // blink before despawning
+  if (it.k==='chest' && Math.random() < 0.3) S.parts.push({k:'spark', x:it.x+rand(-14,14), y:it.y-rand(0,10), vx:0, vy:-40, t:.4, max:.4, col:'#ffe070'});
   const s = ITEM_SPR[it.k], x = sx(it.x), y = sy(it.y), bob = Math.round(Math.sin(S.t*4 + it.seed*6)*1.5) - (it.pop > 0 ? Math.round(Math.sin(it.pop/0.4*Math.PI)*14) : 0);
   // pulsing pixel ring on the ground so pickups read at a glance
   const pr = 8 + ((S.t*10 + it.seed*10) % 4 | 0), n = 22;

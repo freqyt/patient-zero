@@ -53,6 +53,9 @@ const SFX = (() => {
     else unlock();   // desktop browsers resume here; iOS waits for the next tap
   });
   addEventListener('pageshow', () => unlock());
+  // ---- performance: count live sound sources so busy late-game fights never overload phones ----
+  let live = 0;
+  const track = node => { live++; node.onended = () => { live--; }; };
   function env(g, t, a, d, v){ g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002,v), t+a); g.gain.exponentialRampToValueAtTime(0.0001, t+a+d); }
   // filtered oscillator voice
   function voice({type='sawtooth', f0, f1=f0, dur, vol, delay=0, att=0.005, lp=2000, lp1=lp, q=1, vib=0, echo=0, band}){
@@ -61,7 +64,7 @@ const SFX = (() => {
     if (vib){ const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = vib; lg.gain.value = f0*0.04; lfo.connect(lg); lg.connect(o.frequency); lfo.start(t); lfo.stop(t+att+dur+0.05); }
     f.type = band ? 'bandpass' : 'lowpass'; f.Q.value = q; f.frequency.setValueAtTime(lp, t); if (lp1 !== lp) f.frequency.exponentialRampToValueAtTime(Math.max(40,lp1), t+att+dur);
     env(g, t, att, dur, vol); o.connect(f); f.connect(g); route(g, echo);
-    o.start(t); o.stop(t+att+dur+0.05);
+    track(o); o.start(t); o.stop(t+att+dur+0.05);
   }
   // filtered noise burst; brown=true uses the rumbly half of the buffer
   function hiss({dur, vol, f0, f1=f0, delay=0, type='lowpass', q=1, att=0.003, brown=false, echo=0}){
@@ -69,7 +72,7 @@ const SFX = (() => {
     s.buffer = nb; f.type = type; f.Q.value = q;
     f.frequency.setValueAtTime(f0, t); if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(Math.max(30,f1), t+att+dur);
     env(g, t, att, dur, vol); s.connect(f); f.connect(g); route(g, echo);
-    const off = (brown ? 1 : 0) + Math.random()*0.8; s.start(t, off); s.stop(t+att+dur+0.05);
+    const off = (brown ? 1 : 0) + Math.random()*0.8; track(s); s.start(t, off); s.stop(t+att+dur+0.05);
   }
   // "vocal" sound: saw through two formant bandpasses (screams, groans)
   function vox({f0, f1, dur, vol, formants, delay=0, vib=6, echo=0.25, att=0.02}){
@@ -78,38 +81,16 @@ const SFX = (() => {
     const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = vib; lg.gain.value = f0*0.05; lfo.connect(lg); lg.connect(o.frequency);
     env(g, t, att, dur, vol);
     for (const [ff, qq, gg] of formants){ const bp = ac.createBiquadFilter(), fg = ac.createGain(); bp.type = 'bandpass'; bp.frequency.value = ff; bp.Q.value = qq; fg.gain.value = gg; o.connect(bp); bp.connect(fg); fg.connect(g); }
-    route(g, echo); o.start(t); lfo.start(t); o.stop(t+att+dur+0.05); lfo.stop(t+att+dur+0.05);
+    route(g, echo); track(o); o.start(t); lfo.start(t); o.stop(t+att+dur+0.05); lfo.stop(t+att+dur+0.05);
   }
   const R = (a,b) => a + Math.random()*(b-a);
-  // human vocal: pitch rises to a peak then falls, held (not instantly decaying) envelope,
-  // vibrato, soft clipping, three vowel formants and breathy noise on top
-  const VOWELS = {ah:[[820,5,1],[1250,7,.75],[2700,9,.35]], eh:[[560,5,1],[1850,8,.6],[2600,9,.3]], uh:[[480,4,1],[950,6,.55],[2400,9,.2]]};
-  let softClip = null;
-  function scream({f0, peak, end, dur, vol, breath, vow='ah', delay=0}){
-    const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
-    if (!softClip){ softClip = new Float32Array(512); for (let i=0;i<512;i++){ const x = i/255.5-1; softClip[i] = Math.tanh(x*2.2); } }
-    o.type = 'sawtooth';
-    o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(peak, t+dur*0.28); o.frequency.exponentialRampToValueAtTime(end, t+dur);
-    const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = R(6,8); lg.gain.value = f0*0.035;
-    lfo.connect(lg); lg.connect(o.frequency);
-    const sh = ac.createWaveShaper(); sh.curve = softClip;
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t+0.015);
-    g.gain.setValueAtTime(vol, t+dur*0.55); g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
-    o.connect(sh);
-    for (const [ff, qq, gg] of VOWELS[vow]){ const bp = ac.createBiquadFilter(), fg = ac.createGain();
-      bp.type = 'bandpass'; bp.frequency.value = ff*R(.95,1.05); bp.Q.value = qq; fg.gain.value = gg*1.6; sh.connect(bp); bp.connect(fg); fg.connect(g); }
-    route(g, 0.22);
-    hiss({dur:dur*0.9, vol:breath, f0:2200, f1:1400, type:'bandpass', q:1.2, delay, att:0.015});
-    o.start(t); lfo.start(t); o.stop(t+dur+0.05); lfo.stop(t+dur+0.05);
-  }
   const D = {
     // gore & bodies
     bite(v){ hiss({dur:.06, vol:.55*v, f0:2400, f1:500, type:'bandpass', q:1.2}); hiss({dur:.1, vol:.3*v, f0:600, f1:150, delay:.02}); voice({type:'sine', f0:140, f1:60, dur:.08, vol:.25*v}); },
-    // deaths vary so a crowd doesn't repeat one sample: choked grunts, short yelps, the odd full scream
-    die(v){ const r = Math.random();
-      if (r < 0.25){ const f = R(560,860); scream({f0:f, peak:f*R(1.25,1.45), end:f*.62, dur:R(.38,.55), vol:.17*v, breath:.10*v, vow:'ah'}); }
-      else if (r < 0.65){ const f = R(320,560); scream({f0:f, peak:f*1.3, end:f*.75, dur:R(.13,.2), vol:.15*v, breath:.08*v, vow: Math.random()<.5 ? 'ah' : 'eh'}); }
-      else { const f = R(105,165); scream({f0:f, peak:f*1.12, end:f*.7, dur:R(.1,.16), vol:.2*v, breath:.12*v, vow:'uh'}); hiss({dur:.06, vol:.18*v, f0:900, f1:300, type:'bandpass', q:2}); } },
+    // deaths: a short, low, muffled grunt ("hngh") - two cheap nodes, pitch varied per human
+    die(v){ const f = R(105,175);
+      voice({type:'triangle', f0:f, f1:f*R(.55,.7), dur:R(.07,.11), vol:.13*v, lp:650, lp1:300, att:.006});
+      hiss({dur:.05, vol:.05*v, f0:700, f1:250, att:.004}); },
     baton(v){ hiss({dur:.05, vol:.35*v, f0:1800, f1:600, type:'bandpass', q:1.5}); voice({type:'sine', f0:150, f1:70, dur:.07, vol:.3*v}); },
     splat(v){ hiss({dur:.12, vol:.3*v, f0:1400, f1:250, type:'lowpass', q:7}); voice({type:'sine', f0:240, f1:90, dur:.08, vol:.14*v}); },
     squish(v){ hiss({dur:.16, vol:.5*v, f0:1100, f1:180, type:'bandpass', q:2.5}); voice({type:'sine', f0:110, f1:45, dur:.14, vol:.3*v}); },
@@ -156,6 +137,9 @@ const SFX = (() => {
     // crates
     crack(v){ hiss({dur:.05, vol:.3*v, f0:1200, f1:500, type:'bandpass', q:4}); voice({type:'triangle', f0:220, f1:160, dur:.06, vol:.14*v}); },
     crateBreak(v){ for (let i=0;i<4;i++) hiss({dur:.09, vol:.35*v, f0:R(900,1600), f1:300, type:'bandpass', q:3, delay:i*.035}); voice({type:'sine', f0:140, f1:60, dur:.15, vol:.25*v}); voice({type:'triangle', f0:660, f1:990, dur:.2, vol:.06*v, delay:.12, echo:.5}); },
+    chest(v){ hiss({dur:.35, vol:.2*v, f0:300, f1:900, type:'bandpass', q:4});   // creaky lid, then a golden swell
+      [262,330,392,523,659,784].forEach((f,i) => voice({type:'triangle', f0:f, dur:.7-i*.06, vol:.07*v, delay:.25+i*.06, lp:4000, echo:.6}));
+      voice({type:'sawtooth', f0:131, dur:1.2, vol:.08*v, delay:.25, lp:900, att:.05, echo:.5}); hiss({dur:1, vol:.08*v, f0:4000, f1:9000, type:'highpass', delay:.3, echo:.6}); },
     // items
     item(v){ voice({type:'triangle', f0:880, f1:1320, dur:.18, vol:.06*v, lp:4000, echo:.6}); voice({type:'sine', f0:1760, dur:.12, vol:.03*v, delay:.08, echo:.6}); },
     eat(v){ for (let i=0;i<3;i++) hiss({dur:.08, vol:.45*v, f0:R(1200,2200), f1:250, type:'bandpass', q:2, delay:i*.1});
@@ -172,21 +156,31 @@ const SFX = (() => {
       vox({f0:110, f1:80, dur:1.2, vol:.15*v, formants:[[420,6,1],[780,7,.6]], delay:.6, vib:5, echo:.6}); },
   };
   // minimum spacing so crowds of enemies don't turn into noise
-  const GAP = {gun:.05, mg:.08, die:.09, squish:.07, bite:.06, flame:.16, pickup:.035, bone:.1, spit:.06, boom:.1, rise:.2, hurt:.14, crowd:1, sawbuzz:.12, item:.2, baton:.08, splat:.07, crack:.06, clang:.07};
+  const GAP = {gun:.075, mg:.1, die:.16, squish:.12, bite:.08, flame:.22, pickup:.04, bone:.1, spit:.07, boom:.12, rise:.25, hurt:.14, crowd:1,
+    sawbuzz:.14, item:.2, baton:.12, splat:.1, crack:.1, clang:.1};
+  // sounds that must always play (player feedback & big moments); everything else yields when busy
+  const KEY = new Set(['levelup','evolve','select','click','hurt','alarm','nuke','night','dawn','gameover','win','devour','eat','magnet','saw','chest','crateBreak']);
+  const MAX_LIVE = 36, BURST = 7;          // concurrent sources, and new sounds allowed per 60ms window
+  let winStart = 0, winCount = 0;
   function play(name, vol=1, arg){
     if (!ac || muted || ac.state !== 'running' || !D[name]) return;
-    const now = ac.currentTime;
+    const now = ac.currentTime, key = KEY.has(name);
     if (last[name] !== undefined && now - last[name] < (GAP[name] || 0.02)) return;
+    if (!key){
+      if (live > MAX_LIVE) return;
+      if (now - winStart > 0.06){ winStart = now; winCount = 0; }
+      if (++winCount > BURST) return;
+    }
     last[name] = now;
     try { D[name](vol, arg); } catch (e) { console.warn('sfx', name, e); }
   }
-  // positional: quieter the further from Patient Zero
+  // positional: quieter the further from Patient Zero; distant noise is skipped entirely
   function at(name, x, y, arg){
     if (!S) return;
-    const v = clamp(1 - Math.hypot(x-S.player.x, y-S.player.y)/700, 0, 1);
-    if (v > 0.05) play(name, 0.25 + 0.75*v, arg);
+    const v = clamp(1 - Math.hypot(x-S.player.x, y-S.player.y)/600, 0, 1);
+    if (v > 0.25) play(name, 0.25 + 0.75*v, arg);
   }
   function toggle(){ muted = !muted; if (mus) mus.gain.setTargetAtTime(muted ? 0 : 0.3, ac.currentTime, 0.05); try { localStorage.setItem('pz-muted', muted ? '1' : '0'); } catch (e) {}
     if (!muted){ init(); setTimeout(() => play('click'), 30); } return muted; }
-  return {init, play, at, toggle, get muted(){ return muted; }, get state(){ return ac ? ac.state : 'none'; }, get ctx(){ return ac; }, get musicBus(){ return mus; }, get noise(){ return nb; }};
+  return {init, play, at, toggle, get live(){ return live; }, get muted(){ return muted; }, get state(){ return ac ? ac.state : 'none'; }, get ctx(){ return ac; }, get musicBus(){ return mus; }, get noise(){ return nb; }};
 })();

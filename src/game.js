@@ -21,7 +21,7 @@ function startGame(){
     t:0, state:'play',
     player:{x:0,y:40,r:12,hp,maxHp:hp,biteCd:0,biteT:0,biteA:0,face:Math.PI/2,flash:0,frenzy:0,devourCd:0,moving:false,saw:0},
     humans:[], minions:[], corpses:[], bodies:[], pb:[], hb:[], gems:[], parts:[], pools:[], texts:[], lights:[], items:[], itemT:4, flashT:0,
-    kills:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:{spit:1}, evo:{}, rerolls:3 + META.rank('reroll'), spawnAcc:0, shake:0,
+    kills:0, bonusDna:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:{spit:1}, evo:{}, rerolls:3 + META.rank('reroll'), spawnAcc:0, shake:0,
     wt:{spit:0,spikes:1.5,screech:2,trail:0}, banner:null, crowd:null, nextCrowd:14,
     bosses:{}, maxHorde:0, wasNight:false, finalWave:false, winT:0, hazT:0, overtime:false,
   };
@@ -116,7 +116,7 @@ function killHuman(h){
     heal(60); S.shake = 16;
     for (let i=0;i<(h.type==='heli'?6:2);i++) FX.explosion(h.x+rand(-40,40), h.y+rand(-30,20), rand(80,140), 'fire');
     if (h.type==='heli'){ S.winT = 2.8; banner('GUNSHIP DOWN', 'THE CITY IS YOURS'); SFX.play('nuke'); }
-    else banner('APC DESTROYED','THE ARMY IS BLEEDING');
+    else { banner('APC DESTROYED','IT DROPPED A BOSS CHEST'); S.items.push({k:'chest', x:h.x, y:h.y, t:1e9, seed:Math.random(), pop:0.5}); }
     return;
   }
   if (Math.random() < infectChance()) S.corpses.push({x:h.x, y:h.y, t:0.9, max:0.9, v:h.type, look:h.look});
@@ -174,7 +174,7 @@ function hfire(h, ang, spd, dmg, opts){
 function gameOver(win){
   SFX.play(win ? 'win' : 'gameover'); MUSIC.setMode('title');
   setState('over');
-  const dna = META.runReward(S.kills, S.level, S.t, win); META.award(dna, S.t, S.kills, win);
+  const dna = META.runReward(S.kills, S.level, S.t, win) + S.bonusDna; META.award(dna, S.t, S.kills, win);
   $('overTitle').textContent = win ? 'THE CITY HAS FALLEN' : 'YOU WERE PUT DOWN';
   $('overTitle').style.color = win ? '#9be03a' : '#ff5a5a';
   $('overSub').textContent = win ? 'The gunship burns. The streets belong to the dead.' : 'Patient Zero is gone... but the infection lingers.';
@@ -265,8 +265,21 @@ function useItem(it){
     case 'magnet': for (const g of S.gems) g.pull = true; SFX.play('magnet'); floatText(p.x, p.y, 'MAGNET!', '#ff9ccc'); break;
     case 'saw': p.saw = 8; SFX.play('saw'); floatText(p.x, p.y, 'CHAINSAW!', '#ffb040'); break;
     case 'bomb': biohazard(); break;
+    case 'chest': openChest(); break;
     case 'dice': S.rerolls++; SFX.play('select'); floatText(p.x, p.y, '+1 REROLL', '#c8d8ff'); break;
   }
+}
+// boss chest: the armored carrier drops one; it never despawns
+function openChest(){
+  const p = S.player; SFX.play('chest'); S.flashT = 0.45; S.shake = 6;
+  const evos = Object.keys(EVOS).filter(k => L(k) >= MAXLV && L(EVOS[k].w) > 0 && !E(k));
+  let msg;
+  if (evos.length){ const b = pick(evos); S.evo[b] = true; S.pendingLv += 2; msg = 'FREE EVOLUTION: ' + EVOS[b].n.toUpperCase(); }
+  else { S.pendingLv += 3; msg = '+3 FREE MUTATIONS'; }
+  p.hp = p.maxHp; S.bonusDna += 40;
+  for (let i=0;i<18;i++){ const a = rand(0,TAU), d = rand(30,110); S.gems.push({x:p.x+Math.cos(a)*d, y:p.y+Math.sin(a)*d*0.7, v:3, big:true}); }
+  for (let i=0;i<20;i++) S.parts.push({k:'spark', x:p.x, y:p.y, vx:rand(-200,200), vy:rand(-220,40), t:rand(.3,.7), max:.7, col: Math.random()<.5 ? '#ffe070' : '#fff4c0'});
+  banner('BOSS CHEST!', msg + '  +40 DNA');
 }
 // wipes every human on screen; no brains drop and nobody rises, but brains already on the ground stay
 function biohazard(){
@@ -321,6 +334,9 @@ function update(dt){
   S.wasNight = isNight;
   const bossAlive = S.humans.some(h => h.boss && !h.dead);
   MUSIC.setMode(bossAlive ? 'boss' : isNight ? 'night' : 'day');
+  { // music reacts to the fight: how many threats are on screen, frenzy/chainsaw, low health, and time
+    let near = 0; for (const h of S.humans) if (isTarget(h) && Math.abs(h.x-p.x) < VW/2 && Math.abs(h.y-p.y) < VH/2) near++;
+    MUSIC.setMood(near/35 + (p.frenzy > 0 || p.saw > 0 ? 0.3 : 0), p.hp/p.maxHp < 0.3, Math.min(4, Math.floor(S.t/150))); }
   if (S.winT > 0){ S.winT -= dt; if (S.winT <= 0){ gameOver(true); return; } }
 
   // player movement (keyboard or touch stick)
