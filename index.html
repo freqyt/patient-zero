@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0710">
+<title>Patient Zero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#170d1c; --green:#9be03a; --pale:#e8e0d0; --mute:#a89ab8; --red:#ff5a5a; --panel:#1a1024; }
+  html,body{margin:0;height:100%;background:#0b0710;overflow:hidden;color:var(--pale);
+    font-family:"Press Start 2P",ui-monospace,Consolas,monospace;user-select:none;-webkit-user-select:none;touch-action:none}
+  canvas{display:block;image-rendering:pixelated}
+  .ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;
+    padding:16px;box-sizing:border-box;background:rgba(11,7,16,.72)}
+  .ov.show{display:flex}
+  #title{background:linear-gradient(rgba(11,7,16,.35),rgba(11,7,16,.8))}
+  h1{font-size:clamp(28px,7vw,64px);margin:0;color:var(--green);letter-spacing:2px;line-height:1.1;
+    text-shadow:4px 4px 0 var(--ink),-2px -2px 0 #2e5212, 0 0 0 transparent}
+  h1 small{display:block;font-size:.28em;color:var(--red);letter-spacing:4px;margin-top:14px;text-shadow:2px 2px 0 var(--ink)}
+  h2{font-size:clamp(16px,3.4vw,28px);margin:0 0 10px;color:var(--green);text-shadow:3px 3px 0 var(--ink)}
+  .sub{max-width:640px;line-height:1.9;font-size:clamp(9px,1.6vw,12px);color:var(--pale);margin:18px 0;text-shadow:2px 2px 0 var(--ink)}
+  .sub b{color:var(--green);font-weight:normal}
+  .box{background:var(--panel);border:3px solid #7a6a8a;box-shadow:0 0 0 3px var(--ink),6px 6px 0 3px rgba(0,0,0,.5);padding:14px 18px}
+  .keys{display:grid;grid-template-columns:auto auto;gap:10px 16px;text-align:left;font-size:clamp(8px,1.3vw,11px);color:var(--mute);margin-bottom:20px}
+  .keys b{color:var(--pale);font-weight:normal}
+  button{font:inherit;cursor:pointer}
+  .btn{font-size:clamp(11px,2vw,15px);padding:14px 22px;background:#2e5212;color:#f0ffd0;border:3px solid var(--green);
+    box-shadow:0 0 0 3px var(--ink),4px 4px 0 3px var(--ink)}
+  .btn:hover,.btn:focus-visible{background:#4e8a1e;outline:none}
+  .btn:active{transform:translate(2px,2px)}
+  .blink{animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .cards{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+  .card{width:min(210px,80vw);padding:14px 12px 16px;background:var(--panel);color:var(--pale);border:3px solid #7a6a8a;
+    box-shadow:0 0 0 3px var(--ink),5px 5px 0 3px rgba(0,0,0,.5);position:relative;text-align:center}
+  .card:hover,.card:focus-visible{border-color:var(--green);outline:none;transform:translateY(-3px)}
+  .card .ic{width:54px;height:54px;image-rendering:pixelated;display:block;margin:4px auto 8px}
+  .card .nm{font-size:11px;color:#f6f0e0;margin:4px 0 8px;line-height:1.5}
+  .card .lv{font-size:9px;color:var(--green);margin-bottom:10px}
+  .card .lv.new{color:#ffd860}
+  .card .ds{font-size:9px;color:var(--mute);line-height:1.8}
+  .card .k{position:absolute;top:6px;left:8px;font-size:9px;color:#5a4a6a}
+  .stats{font-size:clamp(10px,1.8vw,14px);line-height:2.2;margin:6px 0 22px}
+  .stats span{color:var(--green)}
+  @media (hover:none){ .desk{display:none} }
+  @media (hover:hover){ .mob{display:none} }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Patient Zero game"></canvas>
+
+<div id="title" class="ov show">
+  <h1>PATIENT ZERO<small>THE OUTBREAK IS YOU</small></h1>
+  <div class="sub">Hunt the living. Every human you kill may <b>rise and join your horde</b> &mdash; and the dead keep their gear. Survive 10 minutes and topple the city.</div>
+  <div class="box keys desk">
+    <b>WASD / ARROWS</b><span>SHAMBLE</span>
+    <b>SPACE</b><span>HORDE: HUNT / RALLY</span>
+    <b>E / SHIFT</b><span>DEVOUR A MINION (HEAL)</span>
+    <b>P / ESC</b><span>PAUSE</span>
+  </div>
+  <div class="box keys mob">
+    <b>DRAG</b><span>SHAMBLE</span>
+    <b>RALLY</b><span>HORDE: HUNT / GUARD</span>
+    <b>EAT</b><span>DEVOUR A MINION (HEAL)</span>
+  </div>
+  <button id="startBtn" class="btn"><span class="blink">&#9654;</span> RISE</button>
+</div>
+
+<div id="level" class="ov">
+  <h2>MUTATION!</h2>
+  <div class="sub" style="margin:0 0 6px">YOUR FLESH TWISTS. CHOOSE ONE.</div>
+  <div id="cards" class="cards"></div>
+</div>
+
+<div id="pause" class="ov"><h2>PAUSED</h2><div class="sub">P / ESC / TAP TO RESUME</div></div>
+
+<div id="over" class="ov">
+  <h2 id="overTitle">YOU WERE PUT DOWN</h2>
+  <div id="overSub" class="sub"></div>
+  <div id="overStats" class="box stats"></div>
+  <button id="againBtn" class="btn">RISE AGAIN</button>
+</div>
+
+<script src="src/core.js"></script>
+<script src="src/pixel.js"></script>
+<script src="src/world.js"></script>
+<script src="src/render.js"></script>
+<script src="src/game.js"></script>
+</body>
+</html>
