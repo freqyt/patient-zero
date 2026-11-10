@@ -245,12 +245,19 @@ function statsHTML(){
 
 // ---------- level up ----------
 function openLevel(reroll){
-  if (S.state !== 'level' && !reroll) SFX.play('levelup');
-  setState('level');
   const owned = Object.keys(S.mods), full = owned.length >= MAX_SLOTS;
   const pool = (full ? owned : Object.keys(MUTS)).filter(k => L(k) < MAXLV), opts = [];
-  // a ready evolution always takes the first card
   const evos = Object.keys(EVOS).filter(k => L(k) >= MAXLV && L(EVOS[k].w) > 0 && !E(k));
+  // fully mutated: nothing left to choose, so don't interrupt - level-ups just heal and pay a little DNA
+  if (!pool.length && !evos.length){
+    const n = S.pendingLv; S.pendingLv = 0; heal(20*n, 'feast'); S.bonusDna += 2*n;
+    floatText(S.player.x, S.player.y, 'MAXED +HP', '#ffe070'); SFX.play('pickup', 0.8, 12);
+    if (S.state === 'level') setState('play');
+    return;
+  }
+  if (S.state !== 'level' && !reroll) SFX.play('levelup');
+  setState('level');
+  // a ready evolution always takes the first card
   if (evos.length) opts.push('evo:' + pick(evos));
   $('slots').textContent = full ? `SLOTS FULL ${MAX_SLOTS}/${MAX_SLOTS} - UPGRADES ONLY` : `MUTATION SLOTS ${owned.length}/${MAX_SLOTS}`;
   while (opts.length < 3 && pool.length) opts.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
