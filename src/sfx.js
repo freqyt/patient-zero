@@ -154,6 +154,7 @@ const SFX = (() => {
     gatling(v){ hiss({dur:.04, vol:.22*v, f0:3200, f1:900, type:'bandpass', q:1.5}); voice({type:'sine', f0:150, f1:70, dur:.04, vol:.14*v}); },
     gatlingUp(v){ for (let i=0;i<6;i++) hiss({dur:.04, vol:.25*v, f0:2400+i*300, f1:900, type:'bandpass', q:2, delay:i*.05}); voice({type:'sawtooth', f0:80, f1:220, dur:.35, vol:.1*v, lp:1600}); },
     beam(v){ voice({type:'sawtooth', f0:880, f1:220, dur:.22, vol:.08*v, lp:3500, echo:.4}); hiss({dur:.2, vol:.12*v, f0:5000, f1:1500, type:'bandpass', q:2}); },
+    wave(v){ voice({type:'sine', f0:300, f1:900, dur:.35, vol:.07*v, echo:.5}); voice({type:'triangle', f0:150, f1:450, dur:.35, vol:.04*v, lp:2000, echo:.5}); },
     lucky(v){ [784,988,1175,1568].forEach((f,i) => voice({type:'triangle', f0:f, dur:.18, vol:.07*v, delay:i*.06, lp:5000, echo:.6})); hiss({dur:.4, vol:.06*v, f0:6000, f1:10000, type:'highpass', delay:.2, echo:.6}); },
     // items
     item(v){ voice({type:'triangle', f0:880, f1:1320, dur:.18, vol:.06*v, lp:4000, echo:.6}); voice({type:'sine', f0:1760, dur:.12, vol:.03*v, delay:.08, echo:.6}); },
@@ -172,7 +173,7 @@ const SFX = (() => {
   };
   // minimum spacing so crowds of enemies don't turn into noise
   const GAP = {gun:.075, mg:.1, die:.16, squish:.12, bite:.08, flame:.22, pickup:.04, bone:.1, spit:.07, boom:.12, rise:.25, hurt:.14, crowd:1,
-    sawbuzz:.14, item:.2, baton:.12, splat:.1, lash:.1, spore:.2, bark:.15, healpulse:.3, siren:1, gatling:.06, beam:.15, roar:.5, crack:.1, clang:.1};
+    sawbuzz:.14, item:.2, baton:.12, splat:.1, lash:.1, spore:.2, bark:.15, healpulse:.3, siren:1, gatling:.06, beam:.15, wave:.3, roar:.5, crack:.1, clang:.1};
   // sounds that must always play (player feedback & big moments); everything else yields when busy
   const KEY = new Set(['lucky','levelup','lvlmax','gatlingUp','snipe','evolve','select','click','hurt','alarm','nuke','night','dawn','gameover','win','devour','eat','magnet','saw','chest','crateBreak']);
   const MAX_LIVE = 36, BURST = 7;          // concurrent sources, and new sounds allowed per 60ms window

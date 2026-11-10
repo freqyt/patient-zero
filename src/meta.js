@@ -21,6 +21,16 @@ const META = (() => {
   return {
     UPS, rank, cost,
     hasChar: id => data.chars.includes(id),
+    // save codes: every pz-* setting, JSON, base64, prefixed so we can recognise and version them
+    exportCode(){ const o = {}; for (const k of ['pz-meta-v1','pz-char','pz-muted']){ try { const v = localStorage.getItem(k); if (v !== null) o[k] = v; } catch (e) {} }
+      if (!o['pz-meta-v1']) o['pz-meta-v1'] = JSON.stringify(data);
+      return 'PZ1:' + btoa(unescape(encodeURIComponent(JSON.stringify(o)))); },
+    importCode(code){ code = (code || '').trim();
+      if (!code.startsWith('PZ1:')) throw new Error('That is not a Patient Zero save code.');
+      let o; try { o = JSON.parse(decodeURIComponent(escape(atob(code.slice(4))))); } catch (e) { throw new Error('The save code is damaged or incomplete.'); }
+      if (!o['pz-meta-v1']) throw new Error('The save code has no progress in it.');
+      const d = JSON.parse(o['pz-meta-v1']); if (typeof d.dna !== 'number') throw new Error('The save code has no progress in it.');
+      for (const k in o) if (k.startsWith('pz-')) localStorage.setItem(k, o[k]); },
     unlockChar(id){ if (data.chars.includes(id)) return false; data.chars.push(id); save(); return true; },
     get dna(){ return data.dna; }, get best(){ return data.best; },
     buy(k){ if (rank(k) >= UPS[k].max || data.dna < cost(k)) return false; data.dna -= cost(k); data.up[k] = rank(k) + 1; save(); return true; },
@@ -57,3 +67,26 @@ function renderShop(){
     el.appendChild(b);
   }
 }
+
+// save data overlay (export / import)
+let saveReturn = 'title';
+function openSave(from){
+  saveReturn = from; for (const id of ['title','shop']) $(id).classList.remove('show');
+  $('saveio').classList.add('show'); $('saveOut').value = META.exportCode(); $('saveIn').value = ''; $('saveMsg').textContent = '';
+}
+function closeSave(){ $('saveio').classList.remove('show'); $(saveReturn).classList.add('show'); if (saveReturn === 'shop') renderShop(); refreshTitleDna(); }
+$('saveBtn').onclick = () => openSave('title');
+$('saveBtn2').onclick = () => openSave('shop');
+$('saveBack').onclick = closeSave;
+$('saveCopy').onclick = async () => {
+  const t = $('saveOut'); t.select();
+  try { await navigator.clipboard.writeText(t.value); $('saveMsg').textContent = 'COPIED! KEEP IT SOMEWHERE SAFE.'; }
+  catch (e) { try { document.execCommand('copy'); $('saveMsg').textContent = 'COPIED!'; } catch (e2) { $('saveMsg').textContent = 'SELECT THE CODE AND COPY IT MANUALLY.'; } }
+};
+$('saveLoad').onclick = () => {
+  const code = $('saveIn').value;
+  if (!code.trim()){ $('saveMsg').textContent = 'PASTE A SAVE CODE FIRST.'; return; }
+  if (!confirm('Replace your current progress (DNA, upgrades, characters) with this save?')) return;
+  try { META.importCode(code); $('saveMsg').textContent = 'LOADED! RESTARTING...'; setTimeout(() => location.reload(), 700); }
+  catch (e) { $('saveMsg').textContent = e.message.toUpperCase(); }
+};

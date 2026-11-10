@@ -228,6 +228,11 @@ function drawMuts(P, M, dir, X, hy){
     for (let i=0;i<Math.min(s.length,v);i++){ const [x,y] = s[i]; P(x,y,1,1,g1); P(x,y+1,1,1,'#5a3a2a'); } }
   if ((v = lv('beam')) && !back){   // a glowing eye opening on the chest
     if (side) P(X+1,14,1,1,'#ff9a3a'); else { P(X-1,14,2,1,'#ff9a3a'); if (v>=3) P(X-1,14,2,1,'#fff070'); if (v>=5){ P(X-2,14,1,1,'#ff9a3a'); P(X+1,14,1,1,'#ff9a3a'); } } }
+  if ((v = lv('curse'))){ const c = '#8a2ad0';   // purple hex sigils
+    if (front){ P(X-1,16,2,2,c); if (v>=3){ P(X-4,hy+5,1,1,c); P(X+3,hy+5,1,1,c); } if (v>=5) P(X-3,19,6,1,c); } else if (side){ P(X,16,1,2,c); } else P(X-1,15,2,3,c); }
+  if ((v = lv('xp')) && !back){ P(side ? X+hx : X+2, hy-1, 1, 1, '#ffe060'); if (v>=3) P(side ? X-2+hx : X-3, hy-1, 1, 1, '#ffe060'); }
+  if ((v = lv('wisps'))){ P(X-6,9,1,1,'#d8d0ff'); if (v>=3) P(X+5,8,1,1,'#d8d0ff'); }
+  if ((v = lv('wave')) && !back){ P(side ? X+hx : X-1, hy+1, side ? 1 : 2, 1, '#a0c8ff'); }
   if ((v = lv('haste'))){ const y1 = '#ffe84a';   // crackling yellow nerve-lines on the limbs
     if (!side){ P(X-6,13,1,1,y1); P(X+5,14,1,1,y1); if (v>=2){ P(X-3,21,1,2,y1); P(X+2,22,1,1,y1); } if (v>=4){ P(X-6,15,1,1,y1); P(X+5,12,1,1,y1); } }
     else { P(X+1,13,1,1,y1); if (v>=2) P(X,22,1,2,y1); if (v>=4) P(X-2,15,1,1,y1); } }

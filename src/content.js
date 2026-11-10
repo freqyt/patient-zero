@@ -146,6 +146,28 @@ function updateContent(dt, p){
             const t = clamp(((h.x-p.x)*(ex-p.x) + (h.y-p.y)*(ey-p.y)) / (len*len), 0, 1), qx = p.x + (ex-p.x)*t, qy = p.y + (ey-p.y)*t;
             if ((h.x-qx)**2 + (h.y-qy)**2 < (h.r + 7)**2) dmgHuman(h, crit(h, dmg), 'beam'); }
           S.parts.push({k:'beam', x:p.x, y:p.y, x2:ex, y2:ey, t:.18, max:.18}); } } } }
+  // Grave Wisps: an orbit of wisps that burn whatever they pass through
+  l = L('wisps');
+  if (l){ const ev = E('wisps'), cnt = 1 + Math.floor(l/2) + (ev ? 2 : 0), R = (46 + 4*l)*(ev ? 1.4 : 1);
+    const dmg = (10 + 5*l)*(ev ? 1.5*(1 + 0.1*curse()) : 1);
+    S.wispA = (S.wispA || 0) + dt*2.6*AS(); S.wisps = [];
+    for (let i=0;i<cnt;i++){ const a = S.wispA + i/cnt*TAU; S.wisps.push({x:p.x + Math.cos(a)*R, y:p.y + Math.sin(a)*R*0.7}); }
+    for (const w of S.wisps) for (const h of S.humans){ if (h.dead || !isTarget(h) || h.air) continue;
+      if (d2(h,w) < (h.r+8)**2 && (h.wispCd || 0) <= S.t){ h.wispCd = S.t + 0.5; dmgHuman(h, crit(h, dmg), 'wisps');
+        if (!h.boss){ const d = pd2(h,p) || 1; h.kx = (h.x-p.x)/d*120; h.ky = (h.y-p.y)/d*120; } } } }
+  else S.wisps = null;
+  // Brain Wave: expanding psychic rings that hurt humans and drag brains toward you
+  S.waves = S.waves || [];
+  l = L('wave');
+  if (l){ S.wt.wave = (S.wt.wave ?? 1.5) - dt;
+    if (S.wt.wave <= 0 && S.humans.some(h => vis(h) && d2(h,p) < (150 + 20*l)**2)){ S.wt.wave = Math.max(1.6, 4.5 - 0.35*l)/AS(); SFX.play('wave');
+      S.waves.push({x:p.x, y:p.y, r:6, max:(130 + 18*l)*rng, dmg:14 + 7*l, hit:new Set(), hits:E('wave') ? 2 : 1}); } }
+  for (const w of S.waves){ const prev = w.r; w.r += 260*dt;
+    for (const h of S.humans){ if (h.dead || !isTarget(h) || h.air || w.hit.has(h)) continue;
+      const d = pd2(h,w); if (d < w.r + h.r && d > prev - h.r - 4){ w.hit.add(h);
+        for (let i=0;i<w.hits;i++) dmgHuman(h, crit(h, w.dmg), 'wave'); if (E('wave')) h.stun = Math.max(h.stun, 0.5); } }
+    for (const g of S.gems) if (!g.pull && pd2(g,w) < w.r){ g.pull = true; if (E('wave')) g.wave = true; } }
+  S.waves = S.waves.filter(w => w.r < w.max);
   // Spore Pods: drop mines that burst on contact
   l = L('spores');
   if (l){ S.wt.spores = (S.wt.spores ?? 2) - dt;

@@ -46,6 +46,8 @@ const EVOS = {
   bloom:  {w:'horde',     n:'Horde King',    ic:'👑', d:'Husks stay as permanent horde, +6 horde size, horde hits 50% harder.'},
   lash:   {w:'leech',     n:'Blood Whip',    ic:'🐙', d:'Lash one more target, 40% harder and faster; every lash heals you.'},
   spores: {w:'hunger',    n:'Fungal Bloom',  ic:'🌱', d:'Drop 3 pods at once with 60% bigger blasts that seed new pods.'},
+  wisps:  {w:'curse',     n:'Wailing Ossuary', ic:'⚰️', d:'+2 wisps in a wider orbit, 50% harder, +10% more per curse point.'},
+  wave:   {w:'xp',        n:'Mind Flayer',   ic:'🌌', d:'Waves hit twice and stun; brains they pull in give +25% XP.'},
   beam:   {w:'eyes',      n:'Gaze of Ruin',  ic:'🔆', d:'Twin beams fire front and back, twice as long, double damage.'},
 };
 // minion variants: the dead keep their gear
@@ -81,13 +83,18 @@ const MUTS = {
   chitin:   {n:'Chitin Shell',    ic:'🐚', b:'Chance to deflect bullets, and take 4% less damage.', u:'+8% deflect chance, 4% tougher.'},
   bloom:    {n:'Corpse Bloom',    ic:'🪦', b:'Husk zombies claw out of the ground beside your prey.', u:'More husks, more often, lasting longer.'},
   beam:     {n:'Eye Beam',        ic:'🔦', b:'A piercing beam burns through every human in a line.', u:'Longer, stronger beams, more often.'},
+  wisps:    {n:'Grave Wisps',     ic:'👻', b:'Ghostly wisps orbit you, burning humans they touch.', u:'More wisps, wider orbit, more damage.'},
+  wave:     {n:'Brain Wave',      ic:'🌀', b:'Psychic rings ripple out, hurting humans and pulling in brains.', u:'Wider, stronger, more frequent waves.'},
+  curse:    {n:'Cursed Blood',    ic:'😈', b:'+1 curse: humans get tougher, faster and more numerous, but every brain is worth +10% XP.', u:'+1 curse.'},
+  xp:       {n:'Neural Bloom',    ic:'💡', b:'+10% XP from brains.', u:'+10% XP.'},
   haste:    {n:'Adrenal Surge',   ic:'⚡', b:'+10% attack speed for every attack and mutation.', u:'+10% attack speed.'},
   luck:     {n:'Lucky Rot',       ic:'🍀', b:'+1 luck: more crits, more level-up choices, more loot.', u:'+1 luck.'},
   might:    {n:'Mutant Might',    ic:'💪', b:'+12% damage from all your attacks.',               u:'+12% damage.'},
   eyes:     {n:'Extra Eyes',      ic:'👁️', b:'+12% attack range, pickup range and +4% crit chance.', u:'+12% range, +4% crit.'},
 };
-const MAXLV = 5;
+const MAXLV = 8;   // highest level anything can reach (weapons); items stop at 6
+const maxLv = k => isWeapon(k) ? 8 : 6;
 // WEAPONS are active attacks; everything else is an ITEM (passive). Each weapon evolves with one item.
-const WEAPONS = new Set(['spit','spikes','screech','aura','trail','lash','spores','bloom','beam']);
+const WEAPONS = new Set(['spit','spikes','screech','aura','trail','lash','spores','bloom','beam','wisps','wave']);
 const isWeapon = k => WEAPONS.has(k);
 const BASE_SLOTS = 3;   // weapon slots and item slots each start at 3; DNA Lab raises each up to 6

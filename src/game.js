@@ -57,6 +57,9 @@ const isTarget = h => h.type !== 'crate' && h.type !== 'hazard';
 const luck = () => L('luck') + (S.luckBonus || 0) + META.rank('lucky');
 // attack speed multiplier: every cooldown is divided by this
 const AS = () => 1 + 0.1*L('haste');
+// curse: tougher, faster, more numerous humans for more XP
+const curse = () => L('curse');
+const xpBonus = () => 1 + 0.06*META.rank('appetite') + 0.1*L('xp') + 0.1*curse();
 // Mutant Might boosts everything you deal yourself (not your horde or the environment)
 const NOT_MINE = new Set(['minion','bloater','hazard','elite','bomb','hbone','bloom']);
 
@@ -68,7 +71,7 @@ function edgePos(margin){
   return [p.x + (Math.random()<.5 ? -hw : hw), p.y + rand(-hh,hh)];
 }
 function spawnHuman(type, x, y){
-  const T = HT[type], sc = T.boss ? 1 + S.t/400 : 1 + S.t/300;
+  const T = HT[type], sc = (T.boss ? 1 + S.t/400 : 1 + S.t/300) * (1 + 0.1*curse());
   if (x===undefined) [x, y] = edgePos(30);
   const h = {type, x, y, r:T.r, hp:T.hp*sc, maxHp:T.hp*sc, sp:T.sp*rand(0.9,1.1), xp:T.xp, boss:!!T.boss, air:!!T.air,
     cd:rand(0.5,1.5), cd2:2, cd3:0, burst:0, bt:0, flash:0, stun:0, kx:0, ky:0, face:Math.random()*TAU, wa:Math.random()*TAU,
@@ -204,7 +207,7 @@ function gameOver(win){
 const SRC_INFO = {
   bite:{n:'Bite', ic:'🦷'}, spit:{mut:'spit'}, spike:{mut:'spikes'}, screech:{mut:'screech'}, aura:{mut:'aura'}, pool:{mut:'trail'},
   minion:{n:'Your Horde', ic:'🧟'}, boom:{mut:'boom'}, bloater:{n:'Bloaters', ic:'🔥'}, hazard:{n:'Fuel Explosions', ic:'⛽'},
-  saw:{n:'Bone Gatling', ic:'💀'}, bloom:{mut:'bloom'}, beam:{mut:'beam'}, hbone:{n:'Bone Squad', ic:'🦴'}, gat:{n:'Bone Gatling', ic:'💀'}, lash:{mut:'lash'}, spores:{mut:'spores'}, elite:{n:'Elite blasts', ic:'💥'}, bomb:{n:'Biohazard', ic:'☣️'}, nova:{evo:'aura'}, acid:{evo:'spit'}, other:{n:'Other', ic:'❔'},
+  saw:{n:'Bone Gatling', ic:'💀'}, wisps:{mut:'wisps'}, wave:{mut:'wave'}, bloom:{mut:'bloom'}, beam:{mut:'beam'}, hbone:{n:'Bone Squad', ic:'🦴'}, gat:{n:'Bone Gatling', ic:'💀'}, lash:{mut:'lash'}, spores:{mut:'spores'}, elite:{n:'Elite blasts', ic:'💥'}, bomb:{n:'Biohazard', ic:'☣️'}, nova:{evo:'aura'}, acid:{evo:'spit'}, other:{n:'Other', ic:'❔'},
 };
 const HEAL_INFO = {hide:['Necrotic Hide','🛡️'], hunger:['Ravenous','🍖'], devour:['Devour','🧟'], heart:['Fresh Hearts','🫀'], chest:['Boss Chests','🎁'],
   feast:['Feast','🩸'], regen:['Natural Regen','💚'], leech:['Blood Leech','🩸'], lash:['Blood Whip','🐙'], chitin:['Chitin (blocked)','🐚'], boss:['Boss Kills','💀'], other:['Other','❔']};
@@ -246,7 +249,7 @@ function statsHTML(){
   const evos = Object.keys(S.evo).map(k => EVOS[k].n).join(', ') || 'none';
   const misc = `<div class="sect"><div class="sh">THE OUTBREAK</div><div class="misc">
     <span>Zombies raised <b>${st.risen}</b></span><span>Horde lost <b>${st.lost}</b></span><span>Biggest horde <b>${S.maxHorde}</b></span>
-    <span>Minions devoured <b>${st.devours}</b></span><span>Crates smashed <b>${st.crates}</b></span><span>Elites slain <b>${st.elites||0}</b></span><span>Luck <b>${luck()}</b></span><span>Attack speed <b>+${Math.round((AS()-1)*100)}%</b></span><span>Total damage <b>${fmtN(totalD)}</b></span>
+    <span>Minions devoured <b>${st.devours}</b></span><span>Crates smashed <b>${st.crates}</b></span><span>Elites slain <b>${st.elites||0}</b></span><span>Luck <b>${luck()}</b></span><span>Curse <b>${curse()}</b></span><span>Attack speed <b>+${Math.round((AS()-1)*100)}%</b></span><span>Total damage <b>${fmtN(totalD)}</b></span>
     <span class="wide">Items: <b>${items}</b></span><span class="wide">Evolutions: <b>${evos}</b></span></div></div>`;
   return section('DAMAGE DEALT', dRows, 'No damage dealt.') + section('HEALING', hRows, 'No healing.') + section('DAMAGE TAKEN', tRows, 'Untouched!') + misc;
 }
@@ -256,8 +259,8 @@ function openLevel(reroll){
   const owned = Object.keys(S.mods), ownW = owned.filter(isWeapon), ownI = owned.filter(k => !isWeapon(k));
   const fullW = ownW.length >= slotsW(), fullI = ownI.length >= slotsI();
   // offer upgrades to anything owned, and new weapons / items only while that kind still has a free slot
-  const pool = Object.keys(MUTS).filter(k => L(k) < MAXLV && (L(k) > 0 || (isWeapon(k) ? !fullW : !fullI))), opts = [];
-  const evos = Object.keys(EVOS).filter(k => L(k) >= MAXLV && L(EVOS[k].w) > 0 && !E(k));
+  const pool = Object.keys(MUTS).filter(k => L(k) < maxLv(k) && (L(k) > 0 || (isWeapon(k) ? !fullW : !fullI))), opts = [];
+  const evos = Object.keys(EVOS).filter(k => L(k) >= maxLv(k) && L(EVOS[k].w) > 0 && !E(k));
   // fully mutated: nothing left to choose, so don't interrupt - level-ups just heal and pay a little DNA
   if (!pool.length && !evos.length){
     const n = S.pendingLv, p = S.player; S.pendingLv = 0; heal(20*n, 'feast'); S.bonusDna += 2*n;
@@ -292,7 +295,7 @@ function openLevel(reroll){
     else { const M = MUTS[k], l = L(k), src = mutIcon(k).toDataURL(), ev = evoHint(k);
       c.className = 'card ' + (isWeapon(k) ? 'weapon' : 'item');
       c.innerHTML = `<div class="k">${i+1}</div><img class="ic" src="${src}" alt=""><div class="tag">${isWeapon(k) ? 'WEAPON' : 'ITEM'}</div><div class="nm">${M.n}</div>
-        <div class="lv ${l?'':'new'}">${l ? 'LV '+l+' &gt; '+(l+1) : 'NEW!'}</div><div class="ds">${l?M.u:M.b}</div>${ev}`; }
+        <div class="lv ${l?'':'new'}">${l ? 'LV '+l+' &gt; '+(l+1)+' / '+maxLv(k) : 'NEW!'}</div><div class="ds">${l?M.u:M.b}</div>${ev}`; }
     c.onclick = () => choose(k);
     el.appendChild(c);
   });
@@ -335,7 +338,7 @@ function onScreenPos(){
     if (Math.abs(x-p.x) < VW/2-30 && Math.abs(y-p.y) < VH/2-30) break; }
   return [x, y];
 }
-function spawnItem(k, x, y){ if (x === undefined) [x, y] = onScreenPos(); S.items.push({k, x, y, t:30, seed:Math.random()}); }
+function spawnItem(k, x, y){ if (x === undefined) [x, y] = onScreenPos(); S.items.push({k, x, y, t:1e9, seed:Math.random()}); }
 function staticTarget(type, x, y, hp, r, extra){
   return Object.assign({type, x, y, r, hp, maxHp:hp, sp:0, xp:0, flash:0, stun:0, kx:0, ky:0, cd:0, cd2:0, cd3:0, face:0, dead:false, seed:Math.random()}, extra||{});
 }
@@ -351,7 +354,8 @@ function useItem(it){
   const p = S.player; stat('items', it.k, 1);
   switch (it.k){
     case 'heart': heal(30 + p.maxHp*0.2, 'heart'); FX.blood(p.x, p.y, 8, false); SFX.play('eat'); floatText(p.x, p.y, '+HEALTH', '#ff7a8a'); break;
-    case 'magnet': for (const g of S.gems) g.pull = true; SFX.play('magnet'); floatText(p.x, p.y, 'MAGNET!', '#ff9ccc'); break;
+    case 'magnet': for (const g of S.gems){ g.pull = true; g.mag = true; }
+      for (const o of S.items) if (o.k !== 'chest' && o !== it){ o.pull = true; o.mag = true; } SFX.play('magnet'); floatText(p.x, p.y, 'MAGNET!', '#ff9ccc'); break;
     case 'saw': p.saw = 8; SFX.play('gatlingUp'); floatText(p.x, p.y, 'BONE GATLING!', '#ece4c8'); break;
     case 'bomb': biohazard(); break;
     case 'chest': openChest(); break;
@@ -363,7 +367,7 @@ function useItem(it){
 // boss chest: the armored carrier drops one; it never despawns
 function openChest(){
   const p = S.player; SFX.play('chest'); S.flashT = 0.45; S.shake = 6;
-  const evos = Object.keys(EVOS).filter(k => L(k) >= MAXLV && L(EVOS[k].w) > 0 && !E(k));
+  const evos = Object.keys(EVOS).filter(k => L(k) >= maxLv(k) && L(EVOS[k].w) > 0 && !E(k));
   let msg;
   if (evos.length){ const b = pick(evos); S.evo[b] = true; S.pendingLv += 2; msg = 'FREE EVOLUTION: ' + EVOS[b].n.toUpperCase(); }
   else { S.pendingLv += 3; msg = '+3 FREE MUTATIONS'; }
@@ -461,7 +465,7 @@ function update(dt){
   if (l){ wt.spit = Math.max(0, wt.spit - dt); if (wt.spit<=0){
     const n = 1 + Math.floor(l/2) + (E('spit') ? 2 : 0);
     const tg = S.humans.filter(h => visible(h) && worth(h) && d2(h,p) < (320*(1+0.12*L('eyes')))**2).sort((a,b)=>d2(a,p)-d2(b,p)).slice(0,n);
-    if (tg.length){ wt.spit = 1.25*(1-0.1*l)/AS(); SFX.play('spit', 0.6);
+    if (tg.length){ wt.spit = 1.25*Math.max(0.32, 1-0.085*l)/AS(); SFX.play('spit', 0.6);
       for (let i=0;i<n;i++){ const t = tg[i % tg.length], a = Math.atan2(t.y-p.y,t.x-p.x) + (i>=tg.length ? rand(-.2,.2) : 0);
         S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*300*GS,vy:Math.sin(a)*300*GS,dmg:12+6*l,t:1.2/GS,r:6,pierce:1+Math.max(0,l-2)+(E('spit')?2:0),hit:new Set(),k:'spit'}); } } } }
   l = L('spikes');
@@ -471,7 +475,7 @@ function update(dt){
       S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*260*GS,vy:Math.sin(a)*260*GS,dmg:16+8*l,t:0.6/GS,r:5,pierce:3,hit:new Set(),k:'spike'}); } } }
   l = L('screech');
   if (l){ const R = (110 + 20*l)*(E('screech') ? 1.5 : 1);
-    wt.screech = Math.max(0, wt.screech - dt); if (wt.screech<=0 && anyTarget(R)){ wt.screech = (E('screech') ? 3.5 : 7.5 - 0.8*l)/AS(); SFX.play('screech');
+    wt.screech = Math.max(0, wt.screech - dt); if (wt.screech<=0 && anyTarget(R)){ wt.screech = (E('screech') ? 3.5 : Math.max(2.5, 7.5 - 0.7*l))/AS(); SFX.play('screech');
     S.parts.push({k:'shock',x:p.x,y:p.y,r:10,max:R,t:.45,max2:.45,col:'#e6ffc0'});
     S.parts.push({k:'shock',x:p.x,y:p.y,r:4,max:R*0.7,t:.35,max2:.35,col:'#9be03a'});
     for (const h of S.humans){ if (h.dead || !isTarget(h)) continue; const d = Math.sqrt(d2(h,p));
@@ -494,14 +498,18 @@ function update(dt){
   // crates, items, hazards, chainsaw
   S.itemT -= dt;
   if (S.itemT <= 0){ S.itemT = rand(9,14)*Math.max(0.6, 1 - 0.05*luck()); if (S.humans.filter(h => h.type==='crate').length < 3) spawnCrate(); }
-  for (const it of S.items){ it.t -= dt; if (it.pop > 0){ it.pop -= dt; continue; } if (d2(it,p) < (p.r+12)**2){ it.got = true; useItem(it); } }
+  const igrab = 80*(1 + 0.2*META.rank('scent') + 0.1*L('eyes'));
+  for (const it of S.items){ if (it.pop > 0){ it.pop -= dt; continue; }
+    const d = Math.sqrt(d2(it,p));
+    if (d < igrab || it.pull){ it.pull = true; const s = Math.min(d, (it.mag ? 110 + d*0.6 : 260)*dt); it.x += (p.x-it.x)/(d||1)*s; it.y += (p.y-it.y)/(d||1)*s; }
+    if (d < p.r+12){ it.got = true; useItem(it); } }
   S.items = S.items.filter(it => !it.got && it.t > 0);
   S.hazT -= dt; if (S.hazT <= 0){ S.hazT = 0.3; promoteHazards(); }
   S.flashT = Math.max(0, S.flashT - dt);
   updateContent(dt, p);   // new mutations, spore mines, cure gas, threat banners, Bone Gatling (content.js)
 
   // spawning & bosses
-  const rate = 0.75 * Math.min(1.8 + S.t/50, 10) * (isNight ? 0.85 : 1);
+  const rate = 0.75 * Math.min(1.8 + S.t/50, 10) * (isNight ? 0.85 : 1) * (1 + 0.12*curse());
   S.spawnAcc += dt*rate;
   while (S.spawnAcc >= 1){ S.spawnAcc--; if (S.humans.length < 220) spawnHuman(pickType()); }
   if (S.t >= S.nextCrowd){ S.nextCrowd += 50; spawnCrowd(); }
@@ -515,7 +523,7 @@ function update(dt){
   // humans
   const viewR = Math.hypot(VW,VH)/2;
   // humans move at half pace, creeping up to +25% faster by the end of the run
-  const hsp = GS * (1 + 0.25*Math.min(S.t, GAME_LEN)/GAME_LEN);
+  const hsp = GS * (1 + 0.25*Math.min(S.t, GAME_LEN)/GAME_LEN) * (1 + 0.04*curse());
   for (const h of S.humans){
     if (h.dead) continue;
     const fz = h.elite==='frenzied' ? 1.8 : 1; h.flash -= dt; h.cd -= dt*0.75*fz; h.cd2 -= dt*0.75*fz; h.cd3 -= dt;
@@ -656,7 +664,7 @@ function update(dt){
   S.humans = S.humans.filter(h => !h.dead);
 
   // brains
-  const grab = 80*(1 + 0.2*META.rank('scent') + 0.1*L('eyes')), xpMul = 1 + 0.06*META.rank('appetite');
+  const grab = 80*(1 + 0.2*META.rank('scent') + 0.1*L('eyes')), xpMul = xpBonus();
   // idle brains near each other slide together and fuse into one bigger brain (value is kept exactly)
   S.mergeT = (S.mergeT || 0) - dt;
   if (S.mergeT <= 0){ S.mergeT = 0.5;
@@ -674,8 +682,8 @@ function update(dt){
     else { const s = Math.min(md, 240*dt); g.x += (m.x-g.x)/md*s; g.y += (m.y-g.y)/md*s; }
   }
   for (const g of S.gems){ if (g.merged) continue; const d = Math.sqrt(d2(g,p));
-    if (d < grab || g.pull){ g.mergeTo = null; g.pull = true; const s = Math.min(d, Math.max(420, d*3)*dt); g.x += (p.x-g.x)/(d||1)*s; g.y += (p.y-g.y)/(d||1)*s; }
-    if (d < p.r+6){ g.got = true; S.xp += g.v*xpMul; SFX.play('pickup', 0.8, S.combo++); S.comboT = 0.6;
+    if (d < grab || g.pull){ g.mergeTo = null; g.pull = true; const s = Math.min(d, (g.mag ? 140 + d*0.7 : Math.max(420, d*3))*dt); g.x += (p.x-g.x)/(d||1)*s; g.y += (p.y-g.y)/(d||1)*s; }   // magnet (g.mag) pulls are a slow, visible drift
+    if (d < p.r+6){ g.got = true; S.xp += g.v*xpMul*(g.wave ? 1.25 : 1); SFX.play('pickup', 0.8, S.combo++); S.comboT = 0.6;
       while (S.xp >= S.xpNext){ S.xp -= S.xpNext; S.level++; S.pendingLv++; S.xpNext = Math.floor(4 + Math.pow(S.level,1.3)*2.2); } } }
   S.comboT -= dt; if (S.comboT <= 0) S.combo = 0;
   S.gems = S.gems.filter(g => !g.got && !g.merged);
@@ -771,11 +779,11 @@ function renderPause(){
   const stat = (k, v, c) => `<span>${k} <b style="color:${c||'#f6f0e0'}">${v}</b></span>`;
   const dmgMul = (1 + 0.12*L('might')) * (S.ch.dmg || 1);
   const stats = [stat('TIME', mm+':'+ss), stat('KILLS', S.kills), stat('LEVEL', S.level, '#ff9ccc'), stat('HORDE', hordeCount()+'/'+hordeCap(), '#9be03a'),
-    stat('REROLLS', S.rerolls, '#c8d8ff'), stat('LUCK', luck(), '#7aff7a'), stat('ATTACK SPEED', '+'+Math.round((AS()-1)*100)+'%', '#ffe84a'),
+    stat('REROLLS', S.rerolls, '#c8d8ff'), stat('LUCK', luck(), '#7aff7a'), stat('CURSE', curse(), '#c080ff'), stat('XP GAIN', '+'+Math.round((xpBonus()-1)*100)+'%', '#ff9ccc'), stat('ATTACK SPEED', '+'+Math.round((AS()-1)*100)+'%', '#ffe84a'),
     stat('DAMAGE', '+'+Math.round((dmgMul-1)*100)+'%', '#ff9a7a'), stat('HP', Math.ceil(S.player.hp)+'/'+S.player.maxHp, '#ff7a8a')].join('');
   const row = k => { const ev = S.evo[k], nm = ev ? EVOS[k].n : MUTS[k].n, lv = L(k);
     return `<div class="mrow${ev ? ' ev' : ''}">${img(mutIcon(k))}<div class="mn">${nm}${ev ? ' <small>EVOLVED</small>' : ''}</div>
-      <div class="mp">${'<i class="on"></i>'.repeat(lv)}${'<i></i>'.repeat(MAXLV-lv)}</div><div class="ml">LV ${lv}</div></div>`; };
+      <div class="mp">${'<i class="on"></i>'.repeat(lv)}${'<i></i>'.repeat(maxLv(k)-lv)}</div><div class="ml">LV ${lv}</div></div>`; };
   const list = (title, keys, cap) => `<div class="sect"><div class="sh">${title} ${keys.length}/${cap}</div>${keys.map(row).join('')}${
     '<div class="mrow empty"><div></div><div class="mn">EMPTY SLOT</div></div>'.repeat(Math.max(0, cap - keys.length))}</div>`;
   const own = Object.keys(S.mods);

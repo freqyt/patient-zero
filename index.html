@@ -92,6 +92,8 @@
   .sv{text-align:right;color:#f6f0e0} .sv small{display:block;color:var(--mute);font-size:7px;margin-top:3px}
   .bar{height:4px;background:#2a2036;margin-top:4px} .bar i{display:block;height:100%}
   .none{color:var(--mute)}
+  .saveb{width:min(520px,92vw);text-align:left} .saveb .sl{font-size:9px;color:var(--mute);margin-bottom:6px}
+  .saveb textarea{width:100%;box-sizing:border-box;background:#0e0814;color:#c8ff7a;border:2px solid #4a3a5a;font:9px/1.6 ui-monospace,Consolas,monospace;padding:8px;resize:none;word-break:break-all}
   .mrow{display:grid;grid-template-columns:22px 1fr auto 40px;gap:8px;align-items:center;margin:6px 0}
   .mrow img{width:22px;height:22px;image-rendering:pixelated}
   .mrow .mn{color:#f6f0e0;font-size:9px;line-height:1.4} .mrow .mn small{color:#e8c048;font-size:7px;margin-left:4px}
@@ -124,6 +126,7 @@
   </div>
   <div id="titleDna" class="dna"></div>
   <div class="row"><button id="startBtn" class="btn"><span class="blink">&#9654;</span> RISE</button><button id="labBtn" class="btn alt">DNA LAB</button></div>
+  <div class="row"><button id="saveBtn" class="btn small">SAVE DATA</button></div>
 </div>
 
 <div id="level" class="ov">
@@ -156,22 +159,37 @@
   <div class="row"><button id="charsBack" class="btn small">BACK</button></div>
 </div>
 
+<div id="saveio" class="ov">
+  <h2>SAVE DATA</h2>
+  <div class="sub" style="margin:0 0 8px">COPY YOUR CODE TO BACK UP PROGRESS OR MOVE IT TO ANOTHER DEVICE</div>
+  <div class="box saveb">
+    <div class="sl">YOUR SAVE CODE</div>
+    <textarea id="saveOut" readonly rows="3"></textarea>
+    <div class="row"><button id="saveCopy" class="btn small">COPY CODE</button></div>
+    <div class="sl" style="margin-top:14px">LOAD A SAVE CODE</div>
+    <textarea id="saveIn" rows="3" placeholder="PASTE A PZ1:... CODE HERE"></textarea>
+    <div class="row"><button id="saveLoad" class="btn small alt">LOAD SAVE</button></div>
+    <div id="saveMsg" class="sl" style="color:#ffe070;min-height:12px;margin-top:10px"></div>
+  </div>
+  <div class="row"><button id="saveBack" class="btn small">BACK</button></div>
+</div>
+
 <div id="shop" class="ov">
   <h2>DNA LAB</h2>
   <div class="dna">DNA: <span id="shopDna">0</span> &nbsp;&middot;&nbsp; PERMANENT MUTATIONS FOR EVERY RUN</div>
   <div id="shopGrid" class="cards"></div>
-  <div class="row"><button id="shopBack" class="btn small">BACK</button></div>
+  <div class="row"><button id="shopBack" class="btn small">BACK</button><button id="saveBtn2" class="btn small alt">SAVE DATA</button></div>
 </div>
 
-<script src="src/core.js?v=20261110091445"></script>
-<script src="src/sfx.js?v=20261110091445"></script>
-<script src="src/music.js?v=20261110091445"></script>
-<script src="src/pixel.js?v=20261110091445"></script>
-<script src="src/world.js?v=20261110091445"></script>
-<script src="src/render.js?v=20261110091445"></script>
-<script src="src/meta.js?v=20261110091445"></script>
-<script src="src/chars.js?v=20261110091445"></script>
-<script src="src/content.js?v=20261110091445"></script>
-<script src="src/game.js?v=20261110091445"></script>
+<script src="src/core.js?v=20261110154503"></script>
+<script src="src/sfx.js?v=20261110154503"></script>
+<script src="src/music.js?v=20261110154503"></script>
+<script src="src/pixel.js?v=20261110154503"></script>
+<script src="src/world.js?v=20261110154503"></script>
+<script src="src/render.js?v=20261110154503"></script>
+<script src="src/meta.js?v=20261110154503"></script>
+<script src="src/chars.js?v=20261110154503"></script>
+<script src="src/content.js?v=20261110154503"></script>
+<script src="src/game.js?v=20261110154503"></script>
 </body>
 </html>
