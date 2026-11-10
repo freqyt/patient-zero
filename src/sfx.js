@@ -3,7 +3,7 @@
 // Aimed at a 16-bit "sampled" B-movie feel rather than chip beeps: filtered noise, low thumps,
 // formant-filtered voices for screams/groans, slight bit-crush grit, and an SNES-style echo bus.
 const SFX = (() => {
-  let ac = null, dry = null, wet = null, nb = null, muted = false;
+  let ac = null, dry = null, wet = null, mus = null, nb = null, muted = false;
   try { muted = localStorage.getItem('pz-muted') === '1'; } catch (e) {}
   const last = {};
 
@@ -23,6 +23,9 @@ const SFX = (() => {
       dl.delayTime.value = 0.19; fb.gain.value = 0.38; dlf.type = 'lowpass'; dlf.frequency.value = 1700;
       wet.connect(dl); dl.connect(dlf); dlf.connect(fb); fb.connect(dl); dlf.connect(master);
       dry.connect(crush); crush.connect(tone); tone.connect(master);
+      // music bus: clean (no crush), with a send into the shared echo
+      mus = ac.createGain(); mus.gain.value = muted ? 0 : 0.3; mus.connect(master);
+      const ms = ac.createGain(); ms.gain.value = 0.45; mus.connect(ms); ms.connect(wet);
       master.connect(comp); comp.connect(ac.destination);
       nb = ac.createBuffer(1, ac.sampleRate*2, ac.sampleRate);
       const d = nb.getChannelData(0); let b = 0;
@@ -128,6 +131,9 @@ const SFX = (() => {
     crowd(v){ for (let i=0;i<3;i++){ const f = R(420,640); vox({f0:f, f1:f*1.3, dur:.2, vol:.07*v, formants:[[850,6,1],[1300,8,.6]], delay:i*.07, att:.02}); } },
     gameover(v){ [196,185,165,131].forEach((f,i) => voice({type:'sawtooth', f0:f, f1:f*.97, dur:.7, vol:.1*v, delay:i*.35, lp:900, lp1:300, att:.03, echo:.6}));
       voice({type:'sine', f0:55, f1:40, dur:2, vol:.2*v, delay:1.2, att:.2}); },
+    clang(v){ voice({type:'triangle', f0:R(820,900), f1:600, dur:.12, vol:.1*v, echo:.3}); hiss({dur:.04, vol:.2*v, f0:4000, f1:2000, type:'highpass'}); },
+    evolve(v){ [196,247,294,392,494].forEach((f,i) => voice({type:'sawtooth', f0:f, dur:1.1-i*.12, vol:.08*v, delay:i*.07, lp:2400, lp1:700, att:.02, echo:.6}));
+      vox({f0:90, f1:60, dur:1.2, vol:.14*v, formants:[[420,6,1],[780,7,.6]], delay:.2, vib:5, echo:.6}); hiss({dur:.8, vol:.12*v, f0:800, f1:6000, type:'bandpass', q:2, echo:.6}); },
     // crates
     crack(v){ hiss({dur:.05, vol:.3*v, f0:1200, f1:500, type:'bandpass', q:4}); voice({type:'triangle', f0:220, f1:160, dur:.06, vol:.14*v}); },
     crateBreak(v){ for (let i=0;i<4;i++) hiss({dur:.09, vol:.35*v, f0:R(900,1600), f1:300, type:'bandpass', q:3, delay:i*.035}); voice({type:'sine', f0:140, f1:60, dur:.15, vol:.25*v}); voice({type:'triangle', f0:660, f1:990, dur:.2, vol:.06*v, delay:.12, echo:.5}); },
@@ -147,7 +153,7 @@ const SFX = (() => {
       vox({f0:110, f1:80, dur:1.2, vol:.15*v, formants:[[420,6,1],[780,7,.6]], delay:.6, vib:5, echo:.6}); },
   };
   // minimum spacing so crowds of enemies don't turn into noise
-  const GAP = {gun:.05, mg:.08, die:.09, squish:.07, bite:.06, flame:.16, pickup:.035, bone:.1, spit:.06, boom:.1, rise:.2, hurt:.14, crowd:1, sawbuzz:.12, item:.2, baton:.08, splat:.07, crack:.06};
+  const GAP = {gun:.05, mg:.08, die:.09, squish:.07, bite:.06, flame:.16, pickup:.035, bone:.1, spit:.06, boom:.1, rise:.2, hurt:.14, crowd:1, sawbuzz:.12, item:.2, baton:.08, splat:.07, crack:.06, clang:.07};
   function play(name, vol=1, arg){
     if (!ac || muted || ac.state !== 'running' || !D[name]) return;
     const now = ac.currentTime;
@@ -161,7 +167,7 @@ const SFX = (() => {
     const v = clamp(1 - Math.hypot(x-S.player.x, y-S.player.y)/700, 0, 1);
     if (v > 0.05) play(name, 0.25 + 0.75*v, arg);
   }
-  function toggle(){ muted = !muted; try { localStorage.setItem('pz-muted', muted ? '1' : '0'); } catch (e) {}
+  function toggle(){ muted = !muted; if (mus) mus.gain.setTargetAtTime(muted ? 0 : 0.3, ac.currentTime, 0.05); try { localStorage.setItem('pz-muted', muted ? '1' : '0'); } catch (e) {}
     if (!muted){ init(); setTimeout(() => play('click'), 30); } return muted; }
-  return {init, play, at, toggle, get muted(){ return muted; }, get state(){ return ac ? ac.state : 'none'; }};
+  return {init, play, at, toggle, get muted(){ return muted; }, get state(){ return ac ? ac.state : 'none'; }, get ctx(){ return ac; }, get musicBus(){ return mus; }, get noise(){ return nb; }};
 })();

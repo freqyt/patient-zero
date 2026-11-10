@@ -26,6 +26,17 @@ const HT = {
   soldier:{hp:50,  sp:88, r:11, xp:4},
   flamer: {hp:80,  sp:66, r:12, xp:6},
   apc:    {hp:1600,sp:44, r:34, xp:60, boss:true},
+  heli:   {hp:3200,sp:0,  r:30, xp:150, boss:true, air:true},   // final boss: the gunship
+};
+const BOSS_NAME = {apc:'ARMORED CARRIER', heli:'GUNSHIP'};
+// evolutions: a max-level mutation plus its partner (any level) unlocks a super form
+const EVOS = {
+  spit:   {w:'contagion', n:'Plague Geyser', ic:'🌋', d:'+2 globs and pierce; every glob bursts into an acid splash.'},
+  spikes: {w:'hide',      n:'Bone Armor',    ic:'🦴', d:'Bone Burst fires twice as often and you take 35% less damage.'},
+  screech:{w:'jaws',      n:'Banshee Maw',   ic:'💀', d:'A huge shriek every 3.5s that hits 4x as hard.'},
+  aura:   {w:'boom',      n:'Necrotic Nova', ic:'☢️', d:'Rot Cloud 40% wider, 2x damage; its victims burst.'},
+  trail:  {w:'legs',      n:'Acid Stampede', ic:'🐾', d:'A wide, double-strength sludge trail and +15% speed.'},
+  alpha:  {w:'horde',     n:'Horde King',    ic:'👑', d:'+10 horde size and your horde hits 50% harder.'},
 };
 // minion variants: the dead keep their gear
 const VAR = {

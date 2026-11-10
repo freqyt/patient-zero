@@ -45,6 +45,16 @@
   .card .k{position:absolute;top:6px;left:8px;font-size:9px;color:#5a4a6a}
   .stats{font-size:clamp(10px,1.8vw,14px);line-height:2.2;margin:6px 0 22px}
   .stats span{color:var(--green)}
+  .card.evo{border-color:#e8c048;background:linear-gradient(#2a2010,#1a1024);box-shadow:0 0 0 3px var(--ink),0 0 18px 2px rgba(232,192,72,.45)}
+  .card.evo .nm{color:#ffe070} .card.evo .lv{color:#e8c048;line-height:1.6}
+  .card .hint{font-size:8px;color:#c8a048;margin-top:10px;line-height:1.6}
+  .card .pips{display:flex;gap:4px;justify-content:center;margin:2px 0 8px} .card .pips i{width:10px;height:6px;background:#3a2e44;display:block} .card .pips i.on{background:var(--green)}
+  .card.maxed{opacity:.6} .card.poor .lv{color:#8a6a7a}
+  .row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;align-items:center;margin-top:6px}
+  .btn.alt{background:#3a2050;border-color:#c8a0ff}
+  .btn.small{font-size:11px;padding:10px 16px}
+  .dna{font-size:clamp(10px,1.8vw,13px);color:#c8a0ff;margin:4px 0 14px;text-shadow:2px 2px 0 var(--ink)}
+  #shopGrid{max-height:60vh;overflow:auto;padding:6px}
   @media (hover:none){ .desk{display:none} }
   @media (hover:hover){ .mob{display:none} }
 </style>
@@ -66,7 +76,8 @@
     <b>EAT</b><span>DEVOUR A MINION (HEAL)</span>
     <b>SND</b><span>MUTE SOUND</span>
   </div>
-  <button id="startBtn" class="btn"><span class="blink">&#9654;</span> RISE</button>
+  <div id="titleDna" class="dna"></div>
+  <div class="row"><button id="startBtn" class="btn"><span class="blink">&#9654;</span> RISE</button><button id="labBtn" class="btn alt">DNA LAB</button></div>
 </div>
 
 <div id="level" class="ov">
@@ -74,6 +85,7 @@
   <div class="sub" style="margin:0 0 6px">YOUR FLESH TWISTS. CHOOSE ONE.</div>
   <div id="slots" class="sub" style="margin:0 0 6px;color:#ffd860"></div>
   <div id="cards" class="cards"></div>
+  <div class="row"><button id="reroll" class="btn small alt">REROLL</button></div>
 </div>
 
 <div id="pause" class="ov"><h2>PAUSED</h2><div class="sub">P / ESC / TAP TO RESUME</div></div>
@@ -82,14 +94,24 @@
   <h2 id="overTitle">YOU WERE PUT DOWN</h2>
   <div id="overSub" class="sub"></div>
   <div id="overStats" class="box stats"></div>
-  <button id="againBtn" class="btn">RISE AGAIN</button>
+  <div id="overDna" class="dna"></div>
+  <div class="row"><button id="againBtn" class="btn">RISE AGAIN</button><button id="labBtn2" class="btn alt">DNA LAB</button></div>
+</div>
+
+<div id="shop" class="ov">
+  <h2>DNA LAB</h2>
+  <div class="dna">DNA: <span id="shopDna">0</span> &nbsp;&middot;&nbsp; PERMANENT MUTATIONS FOR EVERY RUN</div>
+  <div id="shopGrid" class="cards"></div>
+  <div class="row"><button id="shopBack" class="btn small">BACK</button></div>
 </div>
 
 <script src="src/core.js"></script>
 <script src="src/sfx.js"></script>
+<script src="src/music.js"></script>
 <script src="src/pixel.js"></script>
 <script src="src/world.js"></script>
 <script src="src/render.js"></script>
+<script src="src/meta.js"></script>
 <script src="src/game.js"></script>
 </body>
 </html>

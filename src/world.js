@@ -14,7 +14,7 @@ const seedOf = (x,y,s) => ((Math.imul(x|0,73856093) ^ Math.imul(y|0,19349663) ^ 
 function lotType(lx,ly){
   if (lx===0 && ly===0) return 'plaza';
   const v = mulberry(seedOf(lx,ly,1))();
-  return v<0.3 ? 'parking' : v<0.55 ? 'park' : v<0.72 ? 'plaza' : 'ruin';
+  return v<0.28 ? 'parking' : v<0.5 ? 'park' : v<0.64 ? 'plaza' : v<0.78 ? 'gas' : 'ruin';
 }
 
 // ---------- tile textures ----------
@@ -47,6 +47,7 @@ const TILES = {};
     if (s===2){ g.fillStyle = '#76695a'; g.fillRect(1,1,6,6); }
   }));
 })();
+TILES.concrete = [1,2,3].map(s => noiseTile('#6c6a66', [['#62605c',26],['#76746e',18],['#55534f',5]], 190+s, (g) => { g.fillStyle = '#5a5854'; g.fillRect(15,0,1,16); g.fillRect(0,15,16,1); }));
 const tileOf = (arr, x, y) => arr[(seedOf(x,y,9) >>> 3) % arr.length];
 
 // ---------- props ----------
@@ -75,9 +76,14 @@ function lotProps(lx,ly){
     for (let i=0;i<3;i++) P.push({k:'bench', x:X+R(-120,120), y:Y+(r()<.5?-80:110)});
     if (r()<0.5) P.push({k:'sandbags', x:X+R(-150,150), y:Y+R(-150,150)});
     if (r()<0.4) P.push({k:'carS', x:X+R(-150,150), y:Y+R(-170,170), c:'#ffffff', v:'police', flip:r()<.5});
+  } else if (type==='gas'){
+    P.push({k:'kiosk', x:X, y:Y-130});
+    for (const ix of [-70, 70]) for (const dx of [-16, 16]) P.push({k:'pump', x:X+ix+dx, y:Y+30});
+    for (let i=0;i<2+(r()*3|0);i++) P.push({k:'fuel', x:X+R(-190,190), y:Y+R(70,190)});
+    if (r()<0.6) P.push({k:'carS', x:X+R(-120,120), y:Y+R(80,160), c:col(), v:r()<0.3?'burned':'car', flip:r()<.5});
   } else { // ruin
     for (let i=0;i<1+(r()*3|0);i++) P.push({k: r()<.5?'carS':'carF', x:X+R(-170,170), y:Y+R(-170,170), c:'#000000', v:'burned', flip:r()<.5, back:r()<.5});
-    for (let i=0;i<2+(r()*4|0);i++) P.push({k: r()<0.35?'toxic':'barrel', x:X+R(-190,190), y:Y+R(-190,190)});
+    for (let i=0;i<2+(r()*4|0);i++) P.push({k: r()<0.3?'toxic':r()<0.4?'fuel':'barrel', x:X+R(-190,190), y:Y+R(-190,190)});
     for (let i=0;i<r()*4;i++) P.push({k:'crate', x:X+R(-190,190), y:Y+R(-190,190)});
     if (r()<0.7) P.push({k:'sandbags', x:X+R(-150,150), y:Y+R(-150,150)});
     if (r()<0.5) P.push({k:'tree', x:X+R(-170,170), y:Y+R(-170,170), v:3});
@@ -94,13 +100,13 @@ function drawProp(g, p, sx, sy){
     case 'carF': s = carFrontSprite(p.c, p.v, p.back); break;
     case 'tree': s = treeSprite(p.v); break;
     case 'lamp': s = p.broken ? LAMP_BROKEN() : LAMP_SPR(); break;
-    default: s = SPR[p.k] && SPR[p.k](); break;
+    default: s = p.gone && SPR[p.k+'Wreck'] ? SPR[p.k+'Wreck']() : SPR[p.k] && SPR[p.k](); break;
   }
   if (!s) return;
   if (p.flip){ g.save(); g.translate(sx, 0); g.scale(-1,1); g.drawImage(s, -Math.floor(s.width/2), sy - s.height + 1); g.restore(); }
   else g.drawImage(s, sx - Math.floor(s.width/2) + ox, sy - s.height + 1);
 }
-const PROP_SHADOW = {carS:[22,5], carF:[13,5], tree:[14,4], dumpster:[16,3], fountain:[32,6], planter:[14,3], bench:[13,2], barrel:[6,2], toxic:[6,2], crate:[8,2], sandbags:[20,3], lamp:[5,2], mailbox:[6,2], hydrant:[5,2], cone:[4,1]};
+const PROP_SHADOW = {carS:[22,5], carF:[13,5], tree:[14,4], dumpster:[16,3], fountain:[32,6], planter:[14,3], bench:[13,2], barrel:[6,2], toxic:[6,2], crate:[8,2], sandbags:[20,3], lamp:[5,2], mailbox:[6,2], hydrant:[5,2], cone:[4,1], pump:[7,2], fuel:[6,2], kiosk:[36,4]};
 
 // ---------- chunk build ----------
 function genChunk(cx,cy){
@@ -121,6 +127,7 @@ function genChunk(cx,cy){
         case 'parking': t = tileOf(TILES.lot, wx, wy); break;
         case 'park': t = (ltx===-1||ltx===0||lty===-1||lty===0) ? tileOf(TILES.path, wx, wy) : tileOf(TILES.grass, wx, wy); break;
         case 'plaza': t = tileOf(TILES.plaza, wx, wy); break;
+        case 'gas': t = tileOf(TILES.concrete, wx, wy); break;
         default: t = tileOf(TILES.dirt, wx, wy);
       }
     }

@@ -449,13 +449,43 @@ const SPR = {
 };
 // 16x16 icons from emoji, crushed to pixels with an outline
 const iconCache = {};
-function mutIcon(k){
-  if (iconCache[k]) return iconCache[k];
+const mutIcon = k => S && S.evo && S.evo[k] ? emojiIcon(EVOS[k].ic, '#7a5208') : emojiIcon(MUTS[k].ic);
+function emojiIcon(str, rim){
+  const key = str + (rim||''); if (iconCache[key]) return iconCache[key];
   const c = mk(18,18), g = c.getContext('2d');
   g.font = '13px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(MUTS[k].ic, 9, 10);
+  g.fillText(str, 9, 10);
   const id = g.getImageData(0,0,18,18), d = id.data;
   for (let i=0;i<d.length;i+=4){ if (d[i+3] < 110) d[i+3] = 0; else { d[i+3] = 255; for (let j=0;j<3;j++) d[i+j] = Math.round(d[i+j]/32)*32; } }
-  g.putImageData(id,0,0); outline(c);
-  return iconCache[k] = c;
+  g.putImageData(id,0,0); outline(c, rim);
+  return iconCache[key] = c;
 }
+
+// ---------- gas station props (pumps & fuel barrels become explosive targets in play) ----------
+SPR.pump = () => propSprite('pump', () => propCanvas(16,28,(P) => {
+  P(2,24,12,3,'#5a5a62');                                            // island base
+  P(3,4,10,20,'#c82830'); P(3,4,2,20,'#e84a50'); P(11,4,2,20,'#8a1418'); // body
+  P(4,6,8,5,'#f0ecdc'); P(5,7,6,3,'#2a3a2a'); P(6,8,3,1,'#7aff7a');   // display
+  P(5,13,6,2,'#f0ecdc');                                             // brand stripe
+  P(12,12,3,2,'#2a2a2a'); P(14,12,1,8,'#2a2a2a'); P(12,19,3,2,'#3a3a3a'); // hose & nozzle
+  P(3,2,10,2,'#e8e4d4');                                             // cap
+}));
+SPR.fuel = () => propSprite('fuel', () => propCanvas(14,18,(P) => {
+  P(2,2,10,3,'#c82830'); P(3,2,8,1,'#f05050'); P(4,3,6,1,'#5a0a10');
+  P(2,5,10,11,'#b01e28'); P(2,5,2,11,'#e04048'); P(10,5,2,11,'#7a0e14');
+  P(2,8,10,1,'#5a0a10'); P(2,13,10,1,'#5a0a10');
+  P(5,9,4,3,'#ffd860'); P(6,10,2,1,'#c82830');                       // flame label
+}));
+SPR.pumpWreck = () => propSprite('pumpWr', () => propCanvas(16,14,(P) => {
+  P(2,10,12,3,'#3a3a40'); P(4,5,8,6,'#2a2220'); P(5,4,3,2,'#4a2a1a'); P(9,6,2,1,'#7a3a1a'); }));
+SPR.fuelWreck = () => propSprite('fuelWr', () => propCanvas(14,10,(P) => {
+  P(2,4,10,4,'#3a1a14'); P(3,3,3,2,'#5a2a1a'); P(8,2,3,3,'#2a1610'); }));
+SPR.kiosk = () => propSprite('kiosk', () => propCanvas(76,52,(P) => {
+  P(2,6,72,8,'#c82830'); P(2,6,72,1,'#e84a50'); P(2,13,72,1,'#8a1418');          // roof band
+  P(26,8,24,4,'#f0ecdc'); P(30,9,16,2,'#c82830');                                // sign
+  P(4,14,68,34,'#d8d0bc'); P(4,14,2,34,'#ece4d0'); P(70,14,2,34,'#a89e8a');      // wall
+  P(8,18,24,16,'#2a4a5a'); P(10,19,8,3,'#6a9ab4'); P(44,18,24,16,'#2a4a5a'); P(46,19,8,3,'#6a9ab4'); // windows
+  P(34,22,8,26,'#3a2e24'); P(40,34,1,2,'#d8b048');                               // door
+  P(9,30,6,4,'#c8a83a'); P(52,28,10,6,'#a8e060');                                // shelf goods
+  P(4,46,68,2,'#8a8270'); P(14,36,1,1,'#1a1a1a');
+}));

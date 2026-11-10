@@ -75,6 +75,7 @@ function drawPlayerFx(p){
     S.parts.push({k:'drop', x:p.x+rand(-6,6), y:p.y, vx:0, vy:0, z:6, vz:0, t:.3, max:.3, col:'#6abf1f'});
   if (L('spit') >= 3 && Math.random() < 0.05*L('spit'))
     S.parts.push({k:'drop', x:p.x+Math.cos(p.face)*4, y:p.y, vx:0, vy:0, z:22, vz:0, t:.4, max:.4, col:'#9be03a'});
+  if (Object.keys(S.evo).length && Math.random() < 0.25){ lg.fillStyle = '#ffe070'; lg.fillRect(x + (rand(-9,9)|0), y - (rand(4,26)|0), 1, 1); }   // evolved sparkle
   if (L('boom') >= 2 && (t*4|0)%3===0){ lg.fillStyle = '#ffd060'; lg.fillRect(x + ((t*13|0)%5) - 2, y - 13 - ((t*7|0)%4), 1, 1); }
 }
 const ICON = {};
@@ -270,12 +271,13 @@ function render(){
   // depth-sorted sprites
   drawList.length = 0;
   for (const pr of props) drawList.push(pr.y, 1, pr);
-  for (const h of S.humans){ trackWalk(h); drawList.push(h.y, h.boss?3:2, h); }
+  for (const h of S.humans){ trackWalk(h); if (!h.air) drawList.push(h.y, h.boss?3:2, h); }
   for (const m of S.minions){ trackWalk(m); drawList.push(m.y, 4, m); }
   for (const c of S.corpses) drawList.push(c.y-1, 5, c);
   for (const it of S.items) drawList.push(it.y, 7, it);
   trackWalk(p); drawList.push(p.y, 6, p);
   drawSorted();
+  for (const h of S.humans) if (h.air) drawHeli(h);   // airborne: always on top
 
   // projectiles (drawn lifted off the ground for the 2.5D read)
   for (const b of S.pb){
@@ -305,7 +307,7 @@ function render(){
   }
   lighting(nt);
   // floating text
-  for (const t of S.texts){ if (t.t < 0.15 && (S.t*30|0)%2) continue; ptext(lg, t.txt, sx(t.x), sy(t.y)-30, t.col, {align:'center', shadow:'#170d1c'}); }
+  for (const t of S.texts){ if (t.t < 0.15 && (S.t*30|0)%2) continue; ptext(lg, t.txt, sx(t.x), sy(t.y)-(t.crit ? 24 : 30), t.col, {align:'center', shadow: t.crit ? '#5a1a00' : '#170d1c'}); }
   post(nt);
   if (S.flashT > 0){ lg.globalAlpha = Math.min(1, S.flashT/0.7)*0.85; lg.fillStyle = '#d8ffb0'; lg.fillRect(0,0,LW,LH); lg.globalAlpha = 1; }
   drawHUD(nt);
@@ -318,11 +320,12 @@ function drawSorted(){
   idx.sort((a,b) => drawList[a*3] - drawList[b*3]);
   for (const i of idx){
     const kind = drawList[i*3+1], o = drawList[i*3+2];
-    if (kind===1){ const sh = PROP_SHADOW[o.k]; const x = sx(o.x), y = sy(o.y);
+    if (kind===1){ if (o.live) continue; const sh = PROP_SHADOW[o.k]; const x = sx(o.x), y = sy(o.y);
       if (x < -60 || x > LW+60 || y < -10 || y > LH+80) continue;
       if (sh){ lg.fillStyle = 'rgba(12,6,18,.35)'; pell(lg, x+1, y, sh[0], sh[1]); }
       drawProp(lg, o, x, y); }
     else if (kind===2 && o.type==='crate') drawCrate(o);
+    else if (kind===2 && o.type==='hazard') drawHazard(o);
     else if (kind===2){ drawChar(o, o.look, humanPose(o), o.flash > 0);
       if (o.stun > 0 && (S.t*6|0)%2===0){ lg.fillStyle = '#ffe96b'; const a = S.t*6; lg.fillRect(sx(o.x)+Math.round(Math.cos(a)*5), sy(o.y)-29, 1, 1); lg.fillRect(sx(o.x)+Math.round(Math.cos(a+3)*5), sy(o.y)-29, 1, 1); }
       if ((o.type==='riot'||o.type==='flamer') && o.hp < o.maxHp) miniBar(sx(o.x), sy(o.y)-30, 12, o.hp/o.maxHp, '#ff4a4a'); }
@@ -379,6 +382,7 @@ function lighting(nt){
       if (x < -150 || x > LW+150 || y < -150 || y > LH+150) continue;
       if (h.type==='cop' || h.type==='soldier') cones.push({x, y:y-12, a:h.face, sp:0.36, r:95});
       else if (h.type==='flamer') Ls.push({x:x+Math.round(Math.cos(h.face)*8), y:y-10, r:18, spr:BAND.blue, a:0.6, amb:true});
+      else if (h.type==='heli') cones.push({x, y:y-6, a:Math.atan2(sy(S.player.y)-y, sx(S.player.x)-x), sp:0.2, r:230});
       else if (h.boss){ for (const s of [-1,1]) cones.push({x:x + Math.round(Math.cos(h.face)*28 - Math.sin(h.face)*6*s), y:y-14 + Math.round(Math.sin(h.face)*14), a:h.face, sp:0.3, r:140}); }
     }
     for (const b of S.hb) if (b.fire) Ls.push({x:sx(b.x), y:sy(b.y)-8, r:16, spr:BAND.orange, a:0.8*b.t/0.5});
@@ -480,7 +484,8 @@ function drawHUD(nt){
 
   const narrow = LW < 300, tcx = narrow ? 55 : Math.round(LW/2), tcy = narrow ? 48 : 6;
   const rem = Math.max(0, GAME_LEN - S.t), mm = Math.floor(rem/60), ss = String(Math.floor(rem%60)).padStart(2,'0');
-  ptext(lg, `${mm}:${ss}`, tcx, tcy, '#f6f0e0', {align:'center', scale:2, shadow:'#170d1c'});
+  if (S.overtime) { if ((S.t*3|0)%2) ptext(lg, 'KILL IT', tcx, tcy, '#ff5a4a', {align:'center', scale:2, shadow:'#170d1c'}); }
+  else ptext(lg, `${mm}:${ss}`, tcx, tcy, '#f6f0e0', {align:'center', scale:2, shadow:'#170d1c'});
   const sw = 44, sx0 = tcx - sw/2, sy0 = tcy + 18, ph = (S.t % 100)/100;
   lg.fillStyle = '#0c0810'; lg.fillRect(sx0-1, sy0-1, sw+2, 4);
   lg.fillStyle = '#c89a3a'; lg.fillRect(sx0, sy0, Math.round(sw*0.62), 2);
@@ -489,13 +494,15 @@ function drawHUD(nt){
   pcirc(lg, Math.round(sx0 + sw*ph), sy0+1, 2, '#170d1c'); pcirc(lg, Math.round(sx0 + sw*ph), sy0+1, 1, night ? '#c8d8ff' : '#ffd860');
   if (night && (S.t*2|0)%2) ptext(lg, 'NIGHT', tcx, sy0+5, '#9ab0ff', {align:'center', shadow:'#170d1c'});
 
-  win(LW-50,6,47,26);
+  win(LW-50,6,47,37);
   lg.drawImage(ICON.skull, LW-46, 10); ptext(lg, S.kills, LW-7, 10, '#f0e8e0', {align:'right'});
   ptext(lg, 'LV', LW-46, 21, '#ff9ccc'); ptext(lg, S.level, LW-7, 21, '#ff9ccc', {align:'right'});
+  lg.drawImage(ITEM_SPR.dice, LW-47, 30); ptext(lg, S.rerolls, LW-7, 32, '#c8d8ff', {align:'right'});
+  drawMinimap(LW-50, 46, 47, 38);
 
   const boss = S.humans.find(h => h.boss);
   if (boss){ const bw = Math.min(160, LW-24), bx = Math.round(LW/2 - bw/2), by = narrow ? 70 : 38;
-    ptext(lg, 'ARMORED CARRIER', LW/2, by-9, '#ff8a7a', {align:'center', shadow:'#170d1c'});
+    ptext(lg, BOSS_NAME[boss.type], LW/2, by-9, '#ff8a7a', {align:'center', shadow:'#170d1c'});
     pbar(bx, by, bw, 3, boss.hp/boss.maxHp, '#ffa080', '#d02828'); }
 
   // mutation slots: owned icons with level pips, then empty frames up to the cap
@@ -505,6 +512,7 @@ function drawHUD(nt){
     lg.fillRect(x, y, 18, 1); lg.fillRect(x, y+17, 18, 1); lg.fillRect(x, y, 1, 18); lg.fillRect(x+17, y, 1, 18);
     if (i >= ks.length) continue;
     const k = ks[i]; lg.drawImage(mutIcon(k), x, y);
+    if (S.evo[k]){ lg.fillStyle = (S.t*4|0)%2 ? '#ffe070' : '#c89a30'; lg.fillRect(x, y, 18, 1); lg.fillRect(x, y+17, 18, 1); lg.fillRect(x, y, 1, 18); lg.fillRect(x+17, y, 1, 18); }
     for (let j=0;j<MAXLV;j++){ lg.fillStyle = j < S.mods[k] ? '#9be03a' : '#3a2e44'; lg.fillRect(x+2+j*3, y+20, 2, 2); } }
 
   if (S.banner){ const b = S.banner, el = 3.2 - b.t;
@@ -566,6 +574,16 @@ const ITEM_SPR = {
     'SW.......SD',
     'SS.......SD'], {R:'#d82838', L:'#ff7080', D:'#8a1420', S:'#c8ccd4', W:'#ffffff'}),
   saw: SAWF[0],
+  dice: itemSpr([
+    '.WWWWWWW.',
+    'WWWWWWWWS',
+    'WKWWWWKWS',
+    'WWWWWWWWS',
+    'WWWWKWWWS',
+    'WWWWWWWWS',
+    'WKWWWWKWS',
+    'WWWWWWWWS',
+    '.SSSSSSS.'], {W:'#f0ecf4', S:'#a8a0b8', K:'#c81c34'}),
   bomb: itemSpr([
     '.CCCCCCCCC.',
     'YYYYYYYYYYY',
@@ -579,8 +597,8 @@ const ITEM_SPR = {
     '.CCCCCCCCC.',
     '..GG...G...'], {C:'#8a8e96', Y:'#e8c830', L:'#fff080', D:'#a08010', K:'#1a1a1a', G:'#8ae03a'}),
 };
-const ITEM_COL = {heart:'#ff6a7a', magnet:'#ff9ccc', saw:'#ffb040', bomb:'#9be03a'};
-const ITEM_BAND = {heart:'red', magnet:'pink', saw:'orange', bomb:'toxic'};
+const ITEM_COL = {heart:'#ff6a7a', magnet:'#ff9ccc', saw:'#ffb040', bomb:'#9be03a', dice:'#c8d8ff'};
+const ITEM_BAND = {heart:'red', magnet:'pink', saw:'orange', bomb:'toxic', dice:'blue'};
 function drawItem(it){
   if (it.t < 5 && (S.t*8|0)%2) return;   // blink before despawning
   const s = ITEM_SPR[it.k], x = sx(it.x), y = sy(it.y), bob = Math.round(Math.sin(S.t*4 + it.seed*6)*1.5) - (it.pop > 0 ? Math.round(Math.sin(it.pop/0.4*Math.PI)*14) : 0);
@@ -626,3 +644,57 @@ FX.splinter = (x, y, n) => { const cols = ['#b88a50','#9a6e3c','#dcb078','#6a4a2
   for (let i=0;i<n;i++){ const a = rand(0,TAU), s = rand(40,160);
     S.parts.push({k:'dirt', x, y, vx:Math.cos(a)*s, vy:Math.sin(a)*s*0.7, z:14, vz:rand(60,180), t:rand(.5,.9), max:.9, col:pick(cols)}); } };
 FX.dust = (x, y) => { for (let i=0;i<6;i++) S.parts.push({k:'smoke', x:x+rand(-10,10), y, vx:rand(-20,20), vy:rand(-10,0), t:.6, max:.6, r:rand(3,5), grow:6}); };
+
+// ---------- gunship (final boss) ----------
+const HELI = (() => propCanvas(80,38,(P) => {
+  P(0,5,6,11,'#4a5240'); P(0,5,6,1,'#6a7458');                                   // tail fin
+  P(4,13,28,5,'#3e4636'); P(4,13,28,1,'#5a6450'); P(4,17,28,1,'#2a3024');        // tail boom
+  P(28,9,36,20,'#4a5240'); P(28,9,36,1,'#6a7458'); P(28,25,36,4,'#363d2e');     // fuselage
+  P(64,13,10,14,'#4a5240'); P(72,16,4,9,'#4a5240'); P(64,13,10,1,'#6a7458');    // nose
+  P(58,11,15,8,'#5aa0c8'); P(60,12,6,2,'#c8ecff'); P(58,18,15,1,'#2a4a5a');      // cockpit glass
+  P(40,13,11,11,'#161a14'); P(43,16,3,3,'#3a4030'); P(46,18,6,2,'#2a2a2a');      // open door + gunner
+  P(32,16,6,6,'#d8d8c8'); P(34,15,2,8,'#d8d8c8'); P(31,18,8,2,'#d8d8c8');       // star insignia
+  P(38,4,22,6,'#3e4636'); P(38,4,22,1,'#5a6450'); P(48,1,4,4,'#22262a');        // engine + mast
+  P(44,29,16,4,'#2e3426'); P(60,29,2,4,'#c02020');                               // rocket pod
+  P(32,35,40,2,'#22262a'); P(38,30,2,5,'#22262a'); P(62,30,2,5,'#22262a');      // skids
+}))();
+const HELI_W = tinted(HELI, '#ffffff');
+function drawHeli(h){
+  const x = sx(h.x), y = sy(h.y) - 48, flip = Math.cos(h.face) < 0, s = h.flash > 0 ? HELI_W : HELI;
+  const bob = Math.round(Math.sin(S.t*3)*1.5);
+  lg.save(); lg.translate(x, 0); if (flip) lg.scale(-1,1);
+  lg.drawImage(s, -40, y - 19 + bob);
+  // main rotor: blurred disc plus a sweeping blade, tail rotor flicker
+  const f = (S.t*24|0)%3;
+  lg.globalAlpha = 0.25; lg.fillStyle = '#c8ccd4'; lg.fillRect(-46, y - 20 + bob, 92, 1); lg.globalAlpha = 1;
+  lg.fillStyle = '#1a1c20'; const bl = [44, 26, 8][f]; lg.fillRect(10 - bl, y - 20 + bob, bl*2, 2);
+  lg.fillStyle = '#5a5e66'; if (f !== 2) lg.fillRect(-42, y - 15 + bob + (f ? 2 : -2), 2, 5);
+  lg.restore();
+  if (h.hp < h.maxHp*0.5 && Math.random() < 0.35) FX.smoke(h.x + rand(-20,20), h.y - 90, 1, 1);
+}
+
+// ---------- explosive street hazards ----------
+function drawHazard(h){
+  const base = SPR[h.sub](), s = h.flash > 0 ? propSprite(h.sub+'W', () => tinted(base, '#ffffff')) : base;
+  const jit = h.flash > 0 ? ((S.t*60|0)%2 ? 1 : -1) : 0, x = sx(h.x) + jit, y = sy(h.y);
+  lg.fillStyle = 'rgba(12,6,18,.35)'; pell(lg, x+1, y, 6, 2);
+  lg.drawImage(s, x - (s.width>>1), y - s.height + 1);
+  if (h.hp < h.maxHp){ miniBar(x, y - s.height - 3, 12, h.hp/h.maxHp, '#ff8a3a');
+    if (Math.random() < 0.2) S.parts.push({k:'spark', x:h.x+rand(-6,6), y:h.y-20, vx:rand(-40,40), vy:rand(-60,0), t:.2, max:.2, col:'#ffb040'}); }
+}
+
+// ---------- minimap ----------
+function drawMinimap(x0, y0, w, h){
+  win(x0, y0, w, h);
+  const p = S.player, cx = x0 + (w>>1), cy = y0 + (h>>1), sc = 1/24;
+  const dot = (wx, wy, col, sz=1) => { const x = Math.round(cx + (wx-p.x)*sc), y = Math.round(cy + (wy-p.y)*sc);
+    if (x <= x0+1 || x+sz > x0+w-1 || y <= y0+1 || y+sz > y0+h-1) return; lg.fillStyle = col; lg.fillRect(x, y, sz, sz); };
+  lg.fillStyle = 'rgba(255,255,255,.07)'; lg.fillRect(Math.round(cx - VW*sc/2), Math.round(cy - VH*sc/2), Math.round(VW*sc), Math.round(VH*sc));
+  for (const o of S.humans){ if (o.boss || o.type==='crate') continue; dot(o.x, o.y, o.type==='hazard' ? '#ff8a3a' : '#8a4a52'); }
+  for (const m of S.minions) dot(m.x, m.y, '#5a9a3a');
+  for (const it of S.items) dot(it.x, it.y, ITEM_COL[it.k], 2);
+  for (const o of S.humans) if (o.type==='crate') dot(o.x, o.y, '#ffd860', 2);
+  if (S.crowd) dot(S.crowd.x, S.crowd.y, '#ff9ccc', 2);
+  for (const o of S.humans) if (o.boss && (S.t*4|0)%2) dot(o.x, o.y, '#ff3a2a', 3);
+  lg.fillStyle = '#ffffff'; lg.fillRect(cx-1, cy-1, 2, 2);
+}
