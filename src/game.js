@@ -21,7 +21,8 @@ function startGame(){
     t:0, state:'play',
     player:{x:0,y:40,r:12,hp,maxHp:hp,biteCd:0,biteT:0,biteA:0,face:Math.PI/2,flash:0,frenzy:0,devourCd:0,moving:false,saw:0},
     humans:[], minions:[], corpses:[], bodies:[], pb:[], hb:[], gems:[], parts:[], pools:[], texts:[], lights:[], items:[], itemT:4, flashT:0,
-    kills:0, bonusDna:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:{spit:1}, evo:{}, rerolls:3 + META.rank('reroll'), spawnAcc:0, shake:0,
+    kills:0, bonusDna:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:{spit:1}, evo:{}, gotAt:{spit:0},
+    st:{dmg:{}, kills:{}, heal:{}, taken:{}, risen:0, lost:0, devours:0, crates:0, items:{}, sawTime:0}, rerolls:3 + META.rank('reroll'), spawnAcc:0, shake:0,
     wt:{spit:0,spikes:1.5,screech:2,trail:0}, banner:null, crowd:null, nextCrowd:14,
     bosses:{}, maxHorde:0, wasNight:false, finalWave:false, winT:0, hazT:0, overtime:false,
   };
@@ -43,7 +44,9 @@ const hordeCap = () => 5 + 3*L('horde') + (E('alpha') ? 6 : 0);
 const HORDE_HP = 1.8, HORDE_DMG = 14;
 function banner(text, sub){ S.banner = {text, sub, t:3.2}; }
 function floatText(x,y,txt,col,crit){ S.texts.push({x,y,txt,col,t:crit ? 0.7 : 0.9, crit}); }
-function heal(v){ const p = S.player; p.hp = Math.min(p.maxHp, p.hp+v); }
+function heal(v, src){ const p = S.player, before = p.hp; p.hp = Math.min(p.maxHp, p.hp+v); stat('heal', src || 'other', p.hp - before); }
+// per-run stat counters for the post-game breakdown
+function stat(cat, key, v){ if (v > 0) S.st[cat][key] = (S.st[cat][key] || 0) + v; }
 const isTarget = h => h.type !== 'crate' && h.type !== 'hazard';
 
 // ---------- spawning ----------
@@ -99,6 +102,7 @@ function dmgHuman(h, dmg, src, quiet){
     if (h.hp <= 0) killHuman(h); return;
   }
   if (h.type==='riot' && src!=='bite' && src!=='minion' && src!=='saw' && src!=='bomb') dmg *= 0.5;
+  stat('dmg', src, Math.min(dmg, Math.max(0, h.hp))); h.lastSrc = src;
   h.hp -= dmg;
   if (!quiet){ h.flash = 0.07; if (Math.random()<0.5) FX.blood(h.x,h.y,2,false); }
   else h.toxic = 0.2;
@@ -107,15 +111,15 @@ function dmgHuman(h, dmg, src, quiet){
 function killHuman(h){
   if (h.type==='crate'){ h.dead = true; breakCrate(h); return; }
   if (h.type==='hazard'){ h.dead = true; h.prop.live = false; h.prop.gone = true; S.shake = Math.max(S.shake, 8);
-    explode(h.x, h.y, h.sub==='pump' ? 105 : 80, 70 + S.t/5, 'zombie', 'fire'); return; }
-  h.dead = true; S.kills++; SFX.at('die', h.x, h.y);
+    explode(h.x, h.y, h.sub==='pump' ? 105 : 80, 70 + S.t/5, 'zombie', 'fire', 'hazard'); return; }
+  h.dead = true; S.kills++; stat('kills', h.lastSrc || 'other', 1); SFX.at('die', h.x, h.y);
   FX.blood(h.x,h.y,h.boss?30:8,false);
   S.gems.push({x:h.x, y:h.y, v:h.xp, big:h.boss || h.xp>=4});
-  if (L('hunger')) heal(0.6*L('hunger'));
+  if (L('hunger')) heal(0.6*L('hunger'), 'hunger');
   if (h.nova){ FX.explosion(h.x, h.y, 40, 'green');   // Necrotic Nova: victims burst
     for (const o of S.humans) if (!o.dead && o!==h && isTarget(o) && d2(o,h) < 48*48) dmgHuman(o, 25, 'nova', true); }
   if (h.boss){
-    heal(60); S.shake = 16;
+    heal(60, 'boss'); S.shake = 16;
     for (let i=0;i<(h.type==='heli'?6:2);i++) FX.explosion(h.x+rand(-40,40), h.y+rand(-30,20), rand(80,140), 'fire');
     if (h.type==='heli'){ S.winT = 2.8; banner('GUNSHIP DOWN', 'THE CITY IS YOURS'); SFX.play('nuke'); }
     else { banner('APC DESTROYED','IT DROPPED A BOSS CHEST'); S.items.push({k:'chest', x:h.x, y:h.y, t:1e9, seed:Math.random(), pop:0.5}); }
@@ -128,30 +132,32 @@ function addMinion(x,y,v,look){
   const V = VAR[v], hm = (1 + 0.15*L('alpha')) * HORDE_HP;
   S.minions.push({x,y,v,r:V.r,hp:V.hp*hm,maxHp:V.hp*hm,atkCd:0,rt:0,target:null,slot:Math.random()*TAU,flash:0,
     look: zombieLook(look), rise:0.45, face:Math.PI/2, wob:Math.random()*TAU});
+  S.st.risen++;
 }
 function hurtMinion(m, dmg){
   if (m.hp<=0) return;
   m.hp -= dmg; m.flash = 0.07;
   if (m.hp <= 0){
-    FX.blood(m.x,m.y,7,true); SFX.at('squish', m.x, m.y);
+    FX.blood(m.x,m.y,7,true); SFX.at('squish', m.x, m.y); S.st.lost++;
     const lb = L('boom');
     if (lb) explode(m.x,m.y,45+10*lb, 18+16*lb, 'zombie');
-    if (VAR[m.v].bloat) explode(m.x,m.y,85, 40+S.t/8, 'zombie', 'fire');
+    if (VAR[m.v].bloat) explode(m.x,m.y,85, 40+S.t/8, 'zombie', 'fire', 'bloater');
   }
 }
-function hurtPlayer(dmg){
+function hurtPlayer(dmg, src){
   const p = S.player; if (S.winT > 0) return;
   if (E('spikes')) dmg *= 0.65;
+  stat('taken', src || 'other', Math.min(dmg, Math.max(0, p.hp)));
   SFX.play('hurt'); p.hp -= dmg; p.flash = 0.1; S.shake = Math.min(8, S.shake + dmg*0.5);
   if (p.hp <= 0){ p.hp = 0; gameOver(false); }
 }
-function explode(x,y,r,dmg,side,style){
+function explode(x,y,r,dmg,side,style,src){
   SFX.at('boom', x, y);
   FX.explosion(x,y,r, style==='fire' || side==='human' ? 'fire' : 'green');
-  if (side==='zombie'){ for (const h of S.humans) if (!h.dead && d2(h,{x,y}) < (r+h.r)**2) dmgHuman(h,dmg,'boom'); }
+  if (side==='zombie'){ for (const h of S.humans) if (!h.dead && d2(h,{x,y}) < (r+h.r)**2) dmgHuman(h,dmg,src||'boom'); }
   else if (side==='human'){
     for (const m of S.minions) if (d2(m,{x,y}) < (r+m.r)**2) hurtMinion(m,dmg*1.3);
-    if (d2(S.player,{x,y}) < (r+S.player.r)**2) hurtPlayer(dmg);
+    if (d2(S.player,{x,y}) < (r+S.player.r)**2) hurtPlayer(dmg, src||'shell');
   }
 }
 function devour(){
@@ -160,12 +166,12 @@ function devour(){
   for (const m of S.minions){ if (m.rise>0) continue; const d = d2(p,m); if (d<bd){ bd=d; best=m; } }
   if (!best){ floatText(p.x,p.y,'NO MINION','#a09aa8'); return; }
   best.hp = 0; FX.blood(best.x,best.y,14,true);
-  SFX.play('devour'); heal(22 + p.maxHp*0.08); p.frenzy = 3.5; p.devourCd = 5;
+  SFX.play('devour'); S.st.devours++; heal(22 + p.maxHp*0.08, 'devour'); p.frenzy = 3.5; p.devourCd = 5;
   floatText(p.x,p.y,'FRENZY!','#ff5a5a');
 }
 function hfire(h, ang, spd, dmg, opts){
   const ox = h.x+Math.cos(ang)*h.r*1.4, oy = h.y+Math.sin(ang)*h.r*1.4;
-  const b = Object.assign({x:ox, y:oy, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd, spd, dmg, t:1.6, r:3}, opts||{});
+  const b = Object.assign({x:ox, y:oy, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd, spd, dmg, t:1.6, r:3, src:h.type}, opts||{});
   // half-speed projectiles live twice as long, so ranges stay the same
   b.vx *= GS; b.vy *= GS; b.spd *= GS; b.t /= GS;
   if (b.shell) b.t0 = b.t;
@@ -181,8 +187,60 @@ function gameOver(win){
   $('overTitle').style.color = win ? '#9be03a' : '#ff5a5a';
   $('overSub').textContent = win ? 'The gunship burns. The streets belong to the dead.' : 'Patient Zero is gone... but the infection lingers.';
   const mm = Math.floor(S.t/60), ss = String(Math.floor(S.t%60)).padStart(2,'0');
-  $('overStats').innerHTML = `TIME <span>${mm}:${ss}</span><br>DEVOURED <span>${S.kills}</span><br>BIGGEST HORDE <span>${S.maxHorde}</span><br>LEVEL <span>${S.level}</span><br>DNA EARNED <span>+${dna}</span>`;
+  $('overStats').innerHTML = `TIME <span>${mm}:${ss}</span> &middot; LEVEL <span>${S.level}</span><br>DEVOURED <span>${S.kills}</span> &middot; DNA <span>+${dna}</span>`;
+  $('overDetail').innerHTML = statsHTML();
   $('overDna').textContent = `DNA BANK: ${META.dna}`;
+}
+
+// ---------- post-game breakdown ----------
+const SRC_INFO = {
+  bite:{n:'Bite', ic:'🦷'}, spit:{mut:'spit'}, spike:{mut:'spikes'}, screech:{mut:'screech'}, aura:{mut:'aura'}, pool:{mut:'trail'},
+  minion:{n:'Your Horde', ic:'🧟'}, boom:{mut:'boom'}, bloater:{n:'Bloaters', ic:'🔥'}, hazard:{n:'Fuel Explosions', ic:'⛽'},
+  saw:{n:'Chainsaw', ic:'🪚'}, bomb:{n:'Biohazard', ic:'☣️'}, nova:{evo:'aura'}, acid:{evo:'spit'}, other:{n:'Other', ic:'❔'},
+};
+const HEAL_INFO = {hide:['Necrotic Hide','🛡️'], hunger:['Ravenous','🍖'], devour:['Devour','🧟'], heart:['Fresh Hearts','🫀'], chest:['Boss Chests','🎁'],
+  feast:['Feast','🩸'], boss:['Boss Kills','💀'], other:['Other','❔']};
+const TAKEN_INFO = {beat:['Baton Cops','👮'], cop:['Pistol Cops','🔫'], soldier:['Soldiers','🪖'], riot:['Riot Police','🛡️'], flamer:['Flamethrowers','🔥'],
+  apc:['Armored Carrier','🚛'], heli:['Gunship','🚁'], shell:['Shells','💣'], other:['Other','❔']};
+const ITEM_NAMES = {heart:'Hearts', magnet:'Magnets', saw:'Chainsaws', bomb:'Biohazards', dice:'Dice', chest:'Chests'};
+const fmtN = v => v >= 10000 ? (v/1000).toFixed(1) + 'k' : v >= 100 ? Math.round(v) + '' : v >= 10 ? v.toFixed(0) : v.toFixed(1);
+function srcLabel(k){
+  const I = SRC_INFO[k] || SRC_INFO.other;
+  if (I.evo) return [EVOS[I.evo].n, emojiIcon(EVOS[I.evo].ic, '#7a5208')];
+  if (I.mut) return S.evo[I.mut] ? [EVOS[I.mut].n, emojiIcon(EVOS[I.mut].ic, '#7a5208')] : [MUTS[I.mut].n, emojiIcon(MUTS[I.mut].ic)];
+  return [I.n, emojiIcon(I.ic)];
+}
+// seconds a source was available, for DPS
+function srcTime(k){
+  const I = SRC_INFO[k] || {};
+  if (k === 'saw') return S.st.sawTime;
+  if (I.evo) return S.t - (S.gotAt['evo:'+I.evo] ?? S.t);
+  if (I.mut) return S.t - (S.gotAt[I.mut] ?? S.t);
+  return S.t;
+}
+function statsHTML(){
+  const st = S.st, img = c => `<img src="${c.toDataURL()}" alt="">`;
+  const section = (title, rows, empty) => `<div class="sect"><div class="sh">${title}</div>${rows.length ? rows.join('') : `<div class="none">${empty}</div>`}</div>`;
+  const bar = (frac, col) => `<div class="bar"><i style="width:${Math.max(2, frac*100).toFixed(0)}%;background:${col}"></i></div>`;
+  // damage dealt
+  const dmg = Object.entries(st.dmg).sort((a,b) => b[1]-a[1]), top = dmg.length ? dmg[0][1] : 1, totalD = dmg.reduce((a,e) => a+e[1], 0);
+  const dRows = dmg.map(([k,v]) => { const [nm, ic] = srcLabel(k), t = srcTime(k), dps = t > 1 && k !== 'bomb' ? fmtN(v/t) : '-';
+    return `<div class="srow">${img(ic)}<div class="sn">${nm}${bar(v/top, '#9be03a')}</div><div class="sv">${fmtN(v)}<small>${Math.round(v/totalD*100)}%</small></div><div class="sv">${dps}<small>DPS</small></div><div class="sv">${st.kills[k]||0}<small>KILLS</small></div></div>`; });
+  // healing
+  const heals = Object.entries(st.heal).filter(e => e[1] >= 1).sort((a,b) => b[1]-a[1]), topH = heals.length ? heals[0][1] : 1;
+  const hRows = heals.map(([k,v]) => { const [nm, e] = HEAL_INFO[k] || HEAL_INFO.other;
+    return `<div class="srow s2">${img(emojiIcon(e))}<div class="sn">${nm}${bar(v/topH, '#ff7a8a')}</div><div class="sv">${fmtN(v)}<small>HP</small></div></div>`; });
+  // damage taken
+  const taken = Object.entries(st.taken).filter(e => e[1] >= 1).sort((a,b) => b[1]-a[1]), topT = taken.length ? taken[0][1] : 1;
+  const tRows = taken.map(([k,v]) => { const [nm, e] = TAKEN_INFO[k] || TAKEN_INFO.other;
+    return `<div class="srow s2">${img(emojiIcon(e))}<div class="sn">${nm}${bar(v/topT, '#ff5a5a')}</div><div class="sv">${fmtN(v)}<small>HP</small></div></div>`; });
+  const items = Object.entries(st.items).map(([k,v]) => `${ITEM_NAMES[k]||k} ${v}`).join(' &middot; ') || 'none';
+  const evos = Object.keys(S.evo).map(k => EVOS[k].n).join(', ') || 'none';
+  const misc = `<div class="sect"><div class="sh">THE OUTBREAK</div><div class="misc">
+    <span>Zombies raised <b>${st.risen}</b></span><span>Horde lost <b>${st.lost}</b></span><span>Biggest horde <b>${S.maxHorde}</b></span>
+    <span>Minions devoured <b>${st.devours}</b></span><span>Crates smashed <b>${st.crates}</b></span><span>Total damage <b>${fmtN(totalD)}</b></span>
+    <span class="wide">Items: <b>${items}</b></span><span class="wide">Evolutions: <b>${evos}</b></span></div></div>`;
+  return section('DAMAGE DEALT', dRows, 'No damage dealt.') + section('HEALING', hRows, 'No healing.') + section('DAMAGE TAKEN', tRows, 'Untouched!') + misc;
 }
 
 // ---------- level up ----------
@@ -228,9 +286,9 @@ function choose(k){
   if (S.state!=='level') return;
   SFX.play('select');
   const p = S.player;
-  if (k==='_heal') heal(50);
-  else if (k.startsWith('evo:')){ const b = k.slice(4); S.evo[b] = true; SFX.play('evolve'); banner('EVOLVED!', EVOS[b].n.toUpperCase()); S.flashT = 0.3; }
-  else { S.mods[k] = L(k) + 1; if (k==='hide'){ p.maxHp += 25; heal(25); } }
+  if (k==='_heal') heal(50, 'feast');
+  else if (k.startsWith('evo:')){ const b = k.slice(4); S.evo[b] = true; S.gotAt['evo:'+b] = S.t; SFX.play('evolve'); banner('EVOLVED!', EVOS[b].n.toUpperCase()); S.flashT = 0.3; }
+  else { if (!S.mods[k]) S.gotAt[k] = S.t; S.mods[k] = L(k) + 1; if (k==='hide'){ p.maxHp += 25; heal(25, 'hide'); } }
   S.pendingLv--;
   if (S.pendingLv > 0) openLevel(); else setState('play');
 }
@@ -256,14 +314,15 @@ function staticTarget(type, x, y, hp, r, extra){
 // loot crates: targets for your attacks and horde; smash one for a random item
 function spawnCrate(){ const [x, y] = onScreenPos(); S.humans.push(staticTarget('crate', x, y, 30, 12)); FX.dust(x, y); SFX.at('item', x, y); }
 function breakCrate(h){
+  S.st.crates++;
   FX.splinter(h.x, h.y, 16); SFX.at('crateBreak', h.x, h.y);
   spawnItem(pickItemType(), h.x, h.y);
   S.items[S.items.length-1].pop = 0.4;
 }
 function useItem(it){
-  const p = S.player;
+  const p = S.player; stat('items', it.k, 1);
   switch (it.k){
-    case 'heart': heal(30 + p.maxHp*0.2); FX.blood(p.x, p.y, 8, false); SFX.play('eat'); floatText(p.x, p.y, '+HEALTH', '#ff7a8a'); break;
+    case 'heart': heal(30 + p.maxHp*0.2, 'heart'); FX.blood(p.x, p.y, 8, false); SFX.play('eat'); floatText(p.x, p.y, '+HEALTH', '#ff7a8a'); break;
     case 'magnet': for (const g of S.gems) g.pull = true; SFX.play('magnet'); floatText(p.x, p.y, 'MAGNET!', '#ff9ccc'); break;
     case 'saw': p.saw = 8; SFX.play('saw'); floatText(p.x, p.y, 'CHAINSAW!', '#ffb040'); break;
     case 'bomb': biohazard(); break;
@@ -278,7 +337,7 @@ function openChest(){
   let msg;
   if (evos.length){ const b = pick(evos); S.evo[b] = true; S.pendingLv += 2; msg = 'FREE EVOLUTION: ' + EVOS[b].n.toUpperCase(); }
   else { S.pendingLv += 3; msg = '+3 FREE MUTATIONS'; }
-  p.hp = p.maxHp; S.bonusDna += 40;
+  heal(p.maxHp, 'chest'); S.bonusDna += 40;
   for (let i=0;i<18;i++){ const a = rand(0,TAU), d = rand(30,110); S.gems.push({x:p.x+Math.cos(a)*d, y:p.y+Math.sin(a)*d*0.7, v:3, big:true}); }
   for (let i=0;i<20;i++) S.parts.push({k:'spark', x:p.x, y:p.y, vx:rand(-200,200), vy:rand(-220,40), t:rand(.3,.7), max:.7, col: Math.random()<.5 ? '#ffe070' : '#fff4c0'});
   banner('BOSS CHEST!', msg + '  +40 DNA');
@@ -290,7 +349,7 @@ function biohazard(){
     if (h.dead || h.type==='hazard' || Math.abs(h.x-p.x) > VW/2+10 || Math.abs(h.y-p.y) > VH/2+10) continue;
     if (h.type==='crate'){ killHuman(h); continue; }
     if (h.boss){ dmgHuman(h, h.maxHp*(h.type==='heli' ? 0.15 : 0.4), 'bomb'); continue; }
-    h.dead = true; S.kills++; n++; FX.blood(h.x, h.y, 6, false); FX.corpse(h);
+    h.dead = true; S.kills++; n++; stat('kills', 'bomb', 1); FX.blood(h.x, h.y, 6, false); FX.corpse(h);
   }
   for (let i=0;i<10;i++) FX.explosion(p.x + rand(-VW/2,VW/2)*0.9, p.y + rand(-VH/2,VH/2)*0.9, rand(50,90), 'green');
   S.hb.length = 0; S.flashT = 0.7; S.shake = 14; SFX.play('nuke');
@@ -350,7 +409,7 @@ function update(dt){
     const spd = 160*GS*(1+0.1*L('legs'))*(E('trail')?1.15:1)*(1+0.2*nt)*(p.frenzy>0?1.4:1)*k;
     p.x += mx*spd*dt; p.y += my*spd*dt; p.face = Math.atan2(my,mx); }
   p.frenzy -= dt; p.devourCd -= dt; p.flash -= dt; p.biteT -= dt;
-  if (L('hide')) heal(0.4*L('hide')*dt);
+  if (L('hide')) heal(0.4*L('hide')*dt, 'hide');
 
   // bite
   p.biteCd -= dt;
@@ -407,7 +466,7 @@ function update(dt){
   S.items = S.items.filter(it => !it.got && it.t > 0);
   S.hazT -= dt; if (S.hazT <= 0){ S.hazT = 0.3; promoteHazards(); }
   S.flashT = Math.max(0, S.flashT - dt);
-  if (p.saw > 0){ p.saw -= dt; SFX.play('sawbuzz', 0.7);
+  if (p.saw > 0){ p.saw -= dt; S.st.sawTime += dt; SFX.play('sawbuzz', 0.7);
     const fx = Math.cos(p.face), fy = Math.sin(p.face);
     for (const h of S.humans){ if (h.dead || h.air) continue;
       const dx = h.x-p.x, dy = h.y-p.y, d = Math.hypot(dx,dy); if (d > 95 + h.r) continue;
@@ -470,12 +529,12 @@ function update(dt){
       case 'beat':   // baton cop: rushes in and clubs whatever zombie is closest
         h.face = ang; h.swing = (h.swing||0) - dt; vx = Math.cos(ang); vy = Math.sin(ang);
         if (zd < h.r+z.r+6 && h.cd<=0){ h.cd = rand(0.9,1.2); h.swing = 0.15; SFX.at('baton', h.x, h.y);
-          if (z===p) hurtPlayer(6); else { hurtMinion(z, 10); z.x += Math.cos(ang)*6; z.y += Math.sin(ang)*6; } }
+          if (z===p) hurtPlayer(6, 'beat'); else { hurtMinion(z, 10); z.x += Math.cos(ang)*6; z.y += Math.sin(ang)*6; } }
         break;
       case 'riot':
         h.face = ang; vx = Math.cos(ang); vy = Math.sin(ang);
         if (zd < h.r+z.r+4 && h.cd<=0){ h.cd = 0.9;
-          if (z===p) hurtPlayer(10); else { hurtMinion(z, 14); z.x += Math.cos(ang)*12; z.y += Math.sin(ang)*12; } }
+          if (z===p) hurtPlayer(10, 'riot'); else { hurtMinion(z, 14); z.x += Math.cos(ang)*12; z.y += Math.sin(ang)*12; } }
         break;
       case 'flamer':
         h.face = ang;
@@ -489,7 +548,7 @@ function update(dt){
         if (h.cd<=0 && zd<300){ h.cd = 0.16; hfire(h, ang+rand(-.12,.12), 320, 4); }
         if (h.cd2<=0){ h.cd2 = 3; h.recoil = 1; const pd2 = Math.sqrt(d2(h,p)); hfire(h, pa, 200, 22, {t:Math.min(2.5,pd2/200), r:7, shell:true}); }
         for (const m of S.minions) if (d2(h,m) < (h.r+m.r)**2) hurtMinion(m, 60*dt);
-        if (d2(h,p) < (h.r+p.r+4)**2 && h.cd3<=0){ h.cd3 = 0.6; hurtPlayer(8); }
+        if (d2(h,p) < (h.r+p.r+4)**2 && h.cd3<=0){ h.cd3 = 0.6; hurtPlayer(8, 'apc'); }
         break; }
       case 'heli': {   // final boss: circles you, strafes with a door gun, fires rocket volleys, drops troops
         h.orb = (h.orb === undefined ? Math.atan2(h.y-p.y, h.x-p.x) : h.orb) + dt*0.28;
@@ -550,8 +609,8 @@ function update(dt){
   S.pb = S.pb.filter(b => b.t > 0);
   // human projectiles
   for (const b of S.hb){ b.x += b.vx*dt; b.y += b.vy*dt; b.t -= dt;
-    if (b.shell){ if (b.t<=0) explode(b.x,b.y,70,22,'human'); continue; }
-    if (d2(b,p) < (b.r+p.r)**2){ hurtPlayer(b.dmg); b.t = 0; continue; }
+    if (b.shell){ if (b.t<=0) explode(b.x,b.y,70,22,'human',null,b.src); continue; }
+    if (d2(b,p) < (b.r+p.r)**2){ hurtPlayer(b.dmg, b.src); b.t = 0; continue; }
     for (const m of S.minions) if (m.hp>0 && m.rise<=0 && d2(b,m) < (b.r+m.r)**2){ hurtMinion(m, b.fire ? b.dmg*3 : b.dmg); b.t = 0; break; } }
   S.hb = S.hb.filter(b => b.t > 0);
   S.minions = S.minions.filter(m => m.hp > 0);

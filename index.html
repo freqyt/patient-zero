@@ -75,6 +75,18 @@
     .card:hover,.card:focus-visible{transform:none}
     #shopGrid{max-height:none;overflow:visible}
   }
+  .detail{width:min(620px,94vw);text-align:left;font-size:9px;margin:0 0 14px;padding:10px 12px}
+  .sect{margin:2px 0 12px} .sect:last-child{margin-bottom:2px}
+  .sh{color:var(--green);font-size:10px;margin-bottom:8px;border-bottom:2px dashed #3a2e44;padding-bottom:5px}
+  .srow{display:grid;grid-template-columns:22px 1fr 62px 52px 46px;gap:8px;align-items:center;margin:6px 0}
+  .srow.s2{grid-template-columns:22px 1fr 62px}
+  .srow img{width:22px;height:22px;image-rendering:pixelated}
+  .sn{color:#f6f0e0;line-height:1.4;font-size:9px}
+  .sv{text-align:right;color:#f6f0e0} .sv small{display:block;color:var(--mute);font-size:7px;margin-top:3px}
+  .bar{height:4px;background:#2a2036;margin-top:4px} .bar i{display:block;height:100%}
+  .none{color:var(--mute)}
+  .misc{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;color:var(--mute);line-height:1.6} .misc b{color:#f6f0e0;font-weight:normal} .misc .wide{grid-column:1/-1}
+  @media (max-width:600px){ .srow{grid-template-columns:20px 1fr 52px 44px 38px;gap:6px} .srow.s2{grid-template-columns:20px 1fr 52px} .misc{grid-template-columns:1fr 1fr} .sn{font-size:8px} }
   @media (hover:none){ .desk{display:none} }
   @media (hover:hover){ .mob{display:none} }
 </style>
@@ -114,6 +126,7 @@
   <h2 id="overTitle">YOU WERE PUT DOWN</h2>
   <div id="overSub" class="sub"></div>
   <div id="overStats" class="box stats"></div>
+  <div id="overDetail" class="box detail"></div>
   <div id="overDna" class="dna"></div>
   <div class="row"><button id="againBtn" class="btn">RISE AGAIN</button><button id="labBtn2" class="btn alt">DNA LAB</button></div>
 </div>
@@ -125,13 +138,13 @@
   <div class="row"><button id="shopBack" class="btn small">BACK</button></div>
 </div>
 
-<script src="src/core.js?v=20261110082601"></script>
-<script src="src/sfx.js?v=20261110082601"></script>
-<script src="src/music.js?v=20261110082601"></script>
-<script src="src/pixel.js?v=20261110082601"></script>
-<script src="src/world.js?v=20261110082601"></script>
-<script src="src/render.js?v=20261110082601"></script>
-<script src="src/meta.js?v=20261110082601"></script>
-<script src="src/game.js?v=20261110082601"></script>
+<script src="src/core.js?v=20261110082836"></script>
+<script src="src/sfx.js?v=20261110082836"></script>
+<script src="src/music.js?v=20261110082836"></script>
+<script src="src/pixel.js?v=20261110082836"></script>
+<script src="src/world.js?v=20261110082836"></script>
+<script src="src/render.js?v=20261110082836"></script>
+<script src="src/meta.js?v=20261110082836"></script>
+<script src="src/game.js?v=20261110082836"></script>
 </body>
 </html>
