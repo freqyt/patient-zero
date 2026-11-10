@@ -5,6 +5,7 @@ const K = {};
 
 function setState(st){
   S.state = st;
+  if (st !== 'play') resetStick();
   $('title').classList.toggle('show', false);
   $('level').classList.toggle('show', st==='level');
   $('pause').classList.toggle('show', st==='pause');
@@ -16,7 +17,7 @@ function startGame(){
     t:0, state:'play',
     player:{x:0,y:40,r:12,hp:100,maxHp:100,biteCd:0,biteT:0,biteA:0,face:Math.PI/2,flash:0,frenzy:0,devourCd:0,moving:false},
     humans:[], minions:[], corpses:[], pb:[], hb:[], gems:[], parts:[], pools:[], texts:[], lights:[],
-    kills:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:{spit:1}, rally:false, spawnAcc:0, shake:0,
+    kills:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:{spit:1}, spawnAcc:0, shake:0,
     wt:{spit:0,spikes:1.5,screech:2,trail:0}, banner:null, crowd:null, nextCrowd:25,
     bosses:{}, maxHorde:0, wasNight:false, finalWave:false,
   };
@@ -330,11 +331,10 @@ function update(dt){
     m.rt -= dt;
     if (m.target && m.target.dead) m.target = null;
     if (m.rt <= 0){ m.rt = rand(0.2,0.35);
-      if (S.rally) m.target = nearestHuman(m, 60);
-      else { const t = nearestHuman(m, 260); m.target = (t && d2(t,p) < 420*420) ? t : null; } }
+      const t = nearestHuman(m, 260); m.target = (t && d2(t,p) < 420*420) ? t : null; }
     let tx, ty;
     if (m.target){ tx = m.target.x; ty = m.target.y; }
-    else { const ring = S.rally ? 26 + (i%3)*14 + p.r : 60 + (i%4)*16, a = m.slot + S.t*(S.rally?0.9:0.25);
+    else { const ring = 46 + (i%4)*16, a = m.slot + S.t*0.25;
       tx = p.x + Math.cos(a)*ring; ty = p.y + Math.sin(a)*ring*0.8; }
     const dx = tx-m.x, dy = ty-m.y, dl = Math.hypot(dx,dy);
     let spd = 118*V.sp*as*(1+0.35*nt); if (d2(m,p) > 200*200) spd *= 1.6;
@@ -380,14 +380,12 @@ function update(dt){
 }
 
 // ---------- input: keyboard ----------
-function toggleRally(){ S.rally = !S.rally; SFX.play(S.rally ? 'rally' : 'hunt'); floatText(S.player.x, S.player.y, S.rally ? 'RALLY!' : 'HUNT!', S.rally ? '#7ad0ff' : '#b8f060'); }
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase(); K[k] = true;
   if (k==='m'){ SFX.toggle(); return; }
   if (k===' ' || k.startsWith('arrow')) e.preventDefault();
   if (!S){ if (k==='enter' || k===' ') startGame(); return; }
   if (S.state==='play'){
-    if (k===' ') toggleRally();
     if (k==='e' || k==='shift') devour();
     if (k==='p' || k==='escape') setState('pause');
   } else if (S.state==='pause'){ if (k==='p' || k==='escape') setState('play'); }
@@ -395,19 +393,21 @@ addEventListener('keydown', e => {
   else if (S.state==='over'){ if (k==='r' || k==='enter') startGame(); }
 });
 addEventListener('keyup', e => { K[e.key.toLowerCase()] = false; });
-addEventListener('blur', () => { for (const k in K) K[k] = false; touch.stick = null; if (S && S.state==='play') setState('pause'); });
+addEventListener('blur', () => { for (const k in K) K[k] = false; resetStick(); if (S && S.state==='play') setState('pause'); });
 
 // ---------- input: touch (virtual stick + buttons) ----------
 const touch = {used:false, stick:null, id:null, ox:0, oy:0};
 function lowXY(e){ return [e.clientX*DPR/SCALE, e.clientY*DPR/SCALE]; }
-function touchButtons(){ const r = 15, y = LH - 30; return [{id:'rally', x:LW-62, y, r, label: S && S.rally ? 'HUNT' : 'RALLY'}, {id:'eat', x:LW-24, y:y-16, r, label:'EAT'}, {id:'snd', x:LW-27, y:44, r:9, label: SFX.muted ? 'OFF' : 'SND'}]; }
+function touchButtons(){ return [{id:'eat', x:LW-26, y:LH-34, r:17, label:'EAT'}, {id:'snd', x:LW-27, y:44, r:9, label: SFX.muted ? 'OFF' : 'SND'}]; }
 cv.addEventListener('pointerdown', e => {
   if (e.pointerType === 'mouse') return;
   touch.used = true; e.preventDefault();
   if (!S || S.state!=='play') return;
   const [x,y] = lowXY(e);
-  for (const b of touchButtons()) if (Math.hypot(x-b.x, y-b.y) < b.r+6){ if (b.id==='rally') toggleRally(); else if (b.id==='snd') SFX.toggle(); else devour(); return; }
-  if (touch.id === null){ touch.id = e.pointerId; touch.ox = x; touch.oy = y; touch.stick = {dx:0, dy:0}; cv.setPointerCapture(e.pointerId); }
+  for (const b of touchButtons()) if (Math.hypot(x-b.x, y-b.y) < b.r+6){ if (b.id==='snd') SFX.toggle(); else devour(); return; }
+  // always hand the stick to the newest finger, so a lost "finger up" event can never leave it stuck
+  touch.id = e.pointerId; touch.ox = x; touch.oy = y; touch.stick = {dx:0, dy:0};
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
 });
 cv.addEventListener('pointermove', e => {
   if (e.pointerId !== touch.id) return;
@@ -415,8 +415,14 @@ cv.addEventListener('pointermove', e => {
   if (d > R){ touch.ox = x - dx/d*R; touch.oy = y - dy/d*R; }
   touch.stick = {dx: clamp(dx/R,-1,1), dy: clamp(dy/R,-1,1)};
 });
-const endTouch = e => { if (e.pointerId === touch.id){ touch.id = null; touch.stick = null; } };
-cv.addEventListener('pointerup', endTouch); cv.addEventListener('pointercancel', endTouch);
+function resetStick(){ touch.id = null; touch.stick = null; }
+const endTouch = e => { if (e.pointerId === touch.id) resetStick(); };
+// belt and braces: any of these ending the active touch releases the stick
+for (const ev of ['pointerup','pointercancel','lostpointercapture']) cv.addEventListener(ev, endTouch);
+addEventListener('pointerup', endTouch); addEventListener('pointercancel', endTouch);
+addEventListener('touchend', e => { if (e.touches.length === 0) resetStick(); }, {passive:true});
+addEventListener('touchcancel', resetStick, {passive:true});
+document.addEventListener('visibilitychange', resetStick);
 function drawTouchUI(){
   if (!touch.used) return;
   if (touch.stick){ const x = Math.round(touch.ox), y = Math.round(touch.oy);

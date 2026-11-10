@@ -458,9 +458,8 @@ function drawHUD(nt){
   ptext(lg, Math.ceil(p.hp), 75, 10, '#f0e8e0');
   lg.drawImage(ICON.zed, 7, 21); const cap = hordeCap(); pbar(17,22,54,4,S.minions.length/cap,'#c8ff7a','#4e9a16');
   ptext(lg, `${S.minions.length}/${cap}`, 75, 20, '#c8ff7a');
-  ptext(lg, S.rally ? 'RALLY' : 'HUNT', 7, 32, S.rally ? '#7ad0ff' : '#b8f060');
   const dr = p.devourCd <= 0;
-  ptext(lg, 'EAT', 49, 32, dr ? '#ff7a7a' : '#6a5a6a'); pbar(70,34,32,3, dr ? 1 : 1-p.devourCd/5, '#ff9a9a', dr?'#e03a4a':'#6a3a44');
+  ptext(lg, 'EAT', 7, 32, dr ? '#ff7a7a' : '#6a5a6a'); pbar(28,34,74,3, dr ? 1 : 1-p.devourCd/5, '#ff9a9a', dr?'#e03a4a':'#6a3a44');
 
   const narrow = LW < 300, tcx = narrow ? 55 : Math.round(LW/2), tcy = narrow ? 48 : 6;
   const rem = Math.max(0, GAME_LEN - S.t), mm = Math.floor(rem/60), ss = String(Math.floor(rem%60)).padStart(2,'0');
