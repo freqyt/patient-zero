@@ -440,7 +440,8 @@ function renderMaps(){
   for (const id of MAP_ORDER){
     const M = MAPS[id], img = mapPrevCache[id] || (mapPrevCache[id] = mapPreview(id).toDataURL());
     const b = document.createElement('button'); b.className = 'card map' + (id === MAP_ID ? ' sel' : '');
-    b.innerHTML = `<img class="ic preview" src="${img}" alt=""><div class="nm">${M.n}</div><div class="ds">${M.d}</div>`;
+    const R = MAP_ROSTER[id], foes = R.bosses.map(k => VARIANTS[k] ? VARIANTS[k].n : BOSS_NAME[k]).join(', ');
+    b.innerHTML = `<img class="ic preview" src="${img}" alt=""><div class="nm">${M.n}</div><div class="ds">${M.d}</div><div class="ds hz">BOSSES: ${foes}</div>`;
     b.onclick = () => { SFX.play('select'); pickMap(id); };
     el.appendChild(b);
   }

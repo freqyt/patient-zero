@@ -284,7 +284,10 @@ function buildChar(L, dir, step, pose){
     if (back){ P(X-1,12,2,8,sk[1]); P(X-2,14,4,1,'#e8f0f4'); P(X-2,17,4,1,'#e8f0f4'); }
     else if (front){ P(X-2,14,1,1,sh[2]); P(X+1,16,1,1,sh[2]); P(X-2,18,1,1,sh[2]); P(X+2,13,1,1,sh[2]); }
   }
-  if (L.vest){ if (side) P(X-2,13,4,5,'#3d4a2a'); else { P(X-3,13,6,5,'#3d4a2a'); if (front){ P(X-3,16,2,2,'#2c361e'); P(X+1,16,2,2,'#2c361e'); } } }
+  if (L.vest){ const vc = L.vestCol || '#3d4a2a', vd = L.vestCol ? shadeHex(vc,-0.3) : '#2c361e';
+    if (side) P(X-2,13,4,5,vc); else { P(X-3,13,6,5,vc); if (front){ P(X-3,16,2,2,vd); P(X+1,16,2,2,vd); if (L.vestCol) P(X-3,15,6,1,'#e8e8d8'); } } }
+  if (L.plaid && !side){ for (let yy=13;yy<20;yy+=2) P(X-4,yy,8,1,shadeHex(sh[1],-0.35)); P(X-2,12,1,8,shadeHex(sh[1],-0.35)); P(X+1,12,1,8,shadeHex(sh[1],-0.35)); }
+  if (L.badge && front) P(X-3,13,2,2,'#f0d050');
   if (L.type==='soldier' && !L.vest){}
   if (L.type==='soldier' && !side){ P(X-4,13,1,1,'#3e4a28'); P(X+2,18,1,1,'#3e4a28'); }
   if (L.type==='cop' && front){ P(X+1,13,1,1,'#f0d050'); P(X-4,18,8,1,'#141420'); }
@@ -307,10 +310,11 @@ function buildChar(L, dir, step, pose){
   };
   switch (pose){
     case 'walk': armsWalk();
-      if (L.weapon==='baton'){   // nightstick in the right hand
-        if (side){ P(X+aS*2,13,1,6,'#1a1a20'); P(X+aS*2,13,1,1,'#4a4a55'); }
-        else if (front){ P(X+5,15-aS,1,6,'#1a1a20'); P(X+5,15-aS,1,1,'#4a4a55'); }
-        else P(X-6,13+aS,1,5,'#1a1a20'); }
+      if (MELEE[L.weapon]){   // nightstick, axe, machete or cargo hook in the right hand
+        const [hc, tc, wide] = MELEE[L.weapon];
+        if (side){ P(X+aS*2,13,1,6,hc); P(X+aS*2,13,1,wide?1:2,tc); if (wide) P(X+aS*2+1,12,2,3,tc); }
+        else if (front){ P(X+5,15-aS,1,6,hc); P(X+5,15-aS,1,2,tc); if (wide) P(X+6,14-aS,2,3,tc); }
+        else P(X-6,13+aS,1,5,hc); }
       break;
     case 'shield': armsWalk(); if (front) P(X+5,16-aS,1,4,'#222'); break;
     case 'panic':
@@ -326,6 +330,8 @@ function buildChar(L, dir, step, pose){
         if (L.weapon==='launcher'){ P(X,13,9,4,'#3a3a2a'); P(X,13,9,1,'#5a5a44'); P(X+8,12,2,6,'#2a2a20'); }
         if (L.weapon==='longrifle'){ P(X-3,15,16,2,'#2a2a22'); P(X-3,15,16,1,'#4a4a3a'); P(X+6,13,4,2,'#1a1a14'); }
         if (L.weapon==='minigun'){ P(X-1,14,13,5,'#2a2a2e'); P(X-1,14,13,1,'#4a4a52'); P(X+11,14,2,5,'#5a5a62'); P(X+1,18,4,3,'#3a3020'); }
+        if (L.weapon==='harpoon'){ P(X-2,15,11,3,'#5a4a3a'); P(X-2,15,11,1,'#7a6a52'); P(X+9,16,4,1,'#c8c8d0'); P(X+12,15,1,3,'#c8c8d0'); }
+        if (L.weapon==='bottle'){ P(X+4,11,2,4,'#4a8a3a'); P(X+4,9,2,2,'#f8a83a'); }
       } else if (front){
         P(X-6,12,2,3,sh[1]); P(X+4,12,2,3,sh[1]); P(X-5,14,3,2,sh[2]); P(X+2,14,3,2,sh[2]); P(X-2,15,4,2,sk[1]);
         if (L.weapon==='pistol'){ P(X-1,16,2,3,'#2b2b33'); }
@@ -334,6 +340,8 @@ function buildChar(L, dir, step, pose){
         if (L.weapon==='launcher'){ P(X-2,13,4,7,'#3a3a2a'); P(X-1,19,2,1,'#1a1a14'); }
         if (L.weapon==='longrifle'){ P(X-1,12,2,11,'#2a2a22'); P(X-1,12,1,11,'#4a4a3a'); }
         if (L.weapon==='minigun'){ P(X-3,14,6,7,'#2a2a2e'); P(X-2,20,1,1,'#5a5a62'); P(X,20,1,1,'#5a5a62'); }
+        if (L.weapon==='harpoon'){ P(X-2,13,4,8,'#5a4a3a'); P(X-1,21,2,2,'#c8c8d0'); }
+        if (L.weapon==='bottle'){ P(X+4,10,2,4,'#4a8a3a'); P(X+4,8,2,2,'#f8a83a'); }
       } else { P(X-6,12,2,3,sh[2]); P(X+4,12,2,3,sh[2]); if (L.weapon==='rifle') P(X+3,8,2,5,'#33332a'); }
       break;
     case 'reach':
@@ -398,6 +406,32 @@ function buildChar(L, dir, step, pose){
       break;
     case 'headband':
       break;
+    case 'hat': case 'cowboy': { const c = shades(L.hat || '#6a5a3a'), wb = L.gear === 'cowboy' ? 2 : 1;   // brimmed hat
+      if (side){ P(X-2+hx,hy-3,6,3,c[1]); P(X-2+hx,hy-3,6,1,c[0]); P(X-3-wb+hx,hy,9+wb*2,1,c[2]); }
+      else { P(X-3,hy-3,6,3,c[1]); P(X-3,hy-3,6,1,c[0]); P(X-4-wb,hy,8+wb*2,1,c[2]); if (L.gear==='cowboy') P(X-3,hy-1,6,1,c[2]); }
+      break; }
+    case 'hardhat': { const c = shades(L.hat || '#e8c030');
+      if (side){ P(X-3+hx,hy-2,7,3,c[1]); P(X-3+hx,hy-2,7,1,c[0]); P(X-4+hx,hy+1,9,1,c[2]); }
+      else { P(X-4,hy-2,8,3,c[1]); P(X-4,hy-2,8,1,c[0]); P(X-5,hy+1,10,1,c[2]); P(X-1,hy-2,2,3,c[0]); }
+      break; }
+    case 'beanie': { const c = shades(L.hat || '#b83a2a');
+      if (side){ P(X-3+hx,hy-2,7,4,c[1]); P(X-3+hx,hy+1,7,1,c[2]); P(X+hx,hy-3,2,1,c[0]); }
+      else { P(X-4,hy-2,8,4,c[1]); P(X-4,hy+1,8,1,c[2]); P(X-1,hy-3,2,1,c[0]); }
+      break; }
+    case 'hood': { const c = shades(L.hat || '#8a7a5a');
+      if (side){ P(X-4+hx,hy-2,8,4,c[1]); P(X-4+hx,hy-2,3,10,c[1]); P(X-4+hx,hy-2,8,1,c[0]); }
+      else if (front){ P(X-5,hy-2,10,3,c[1]); P(X-5,hy-2,10,1,c[0]); P(X-5,hy+1,2,7,c[1]); P(X+3,hy+1,2,7,c[2]); }
+      else { P(X-5,hy-2,10,10,c[1]); P(X-5,hy-2,10,1,c[0]); }
+      break; }
+    case 'veil': {   // beekeeper hat and mesh
+      if (side){ P(X-4+hx,hy-3,9,3,'#ece8d8'); P(X-5+hx,hy,11,1,'#c8c4b4'); P(X-3+hx,hy+1,7,6,'rgba(40,40,40,.55)'); }
+      else { P(X-5,hy-3,10,3,'#ece8d8'); P(X-6,hy,12,1,'#c8c4b4'); P(X-4,hy+1,8,6,'rgba(40,40,40,.55)'); }
+      break; }
+    case 'welder': {
+      if (side){ P(X-3+hx,hy-1,8,9,'#3a3a42'); P(X-3+hx,hy-1,8,1,'#5a5a62'); P(X+2+hx,hy+3,3,2,'#2a6a3a'); }
+      else if (front){ P(X-5,hy-1,10,9,'#3a3a42'); P(X-5,hy-1,10,1,'#5a5a62'); P(X-3,hy+3,6,2,'#2a6a3a'); P(X-3,hy+3,6,1,'#4aaa5a'); }
+      else { P(X-5,hy-1,10,9,'#3a3a42'); }
+      break; }
     case 'beret':
       if (side){ P(X-3+hx,hy-1,7,2,'#2a3a1a'); P(X-4+hx,hy,2,2,'#2a3a1a'); }
       else { P(X-4,hy-1,8,2,'#2a3a1a'); P(X-5,hy,2,2,'#2a3a1a'); if (front) P(X+1,hy-1,2,1,'#c8a040'); }
@@ -408,15 +442,32 @@ function buildChar(L, dir, step, pose){
         if (front) for (let i=0;i<8;i+=2) P(X-4+i,hy+2,1,1,'#3a1a22'); }
       break;
   }
+  if (L.bandana && !back){ if (side) P(X-1+hun,hy+4,5,3,L.bandana); else { P(X-4,hy+4,8,3,L.bandana); P(X-4,hy+4,8,1,shadeHex(L.bandana,0.2)); } }
   // front items
   if (L.shield){
-    const S0 = '#7d90a6', S1 = '#a8bccf', S2 = '#55657a';
+    const [S1, S0, S2] = L.shieldCol ? shades(L.shieldCol) : ['#a8bccf', '#7d90a6', '#55657a'];
     if (front){ P(X-8,11,7,12,S0); P(X-8,11,7,1,S1); P(X-8,11,1,12,S1); P(X-2,11,1,12,S2); P(X-7,15,5,1,'#e8eef4'); }
     else if (side){ P(X+4,10,3,13,S0); P(X+4,10,1,13,S1); P(X+6,10,1,13,S2); }
     else { P(X+4,12,2,10,S2); }
   }
   if (L.muts) drawMuts(P, L.muts, dir, X, hy);
   return outline(reshape(c, L.rowOps));
+}
+// melee weapons: handle colour, head colour, wide head (axe)
+const MELEE = {baton:['#1a1a20','#4a4a55',0], axe:['#6a4428','#c8c8d0',1], machete:['#3a2418','#d8d8e0',0], hook:['#3a3a42','#a8a8b0',1], wrench:['#5a5a62','#8a8a92',1]};
+// recolour a sprite: saturated pixels take hue h (degrees) and saturation s; l shifts lightness. Used for map-themed vehicles.
+function repaint(c, o){
+  const w = mk(c.width, c.height), g = w.getContext('2d'); g.drawImage(c, 0, 0);
+  const id = g.getImageData(0, 0, w.width, w.height), d = id.data;
+  for (let i=0;i<d.length;i+=4){ if (!d[i+3]) continue;
+    const r = d[i]/255, gg = d[i+1]/255, b = d[i+2]/255, mx = Math.max(r,gg,b), mn = Math.min(r,gg,b), l = (mx+mn)/2;
+    let h = 0, sat = 0; if (mx !== mn){ const dd = mx-mn; sat = l > 0.5 ? dd/(2-mx-mn) : dd/(mx+mn);
+      h = mx === r ? (gg-b)/dd + (gg < b ? 6 : 0) : mx === gg ? (b-r)/dd + 2 : (r-gg)/dd + 4; h *= 60; }
+    if (l < 0.1 || (sat < 0.12 && !o.all)) continue;   // keep outlines, glass and greys
+    const H = (o.h === undefined ? h : o.h)/360, Sx = Math.min(1, o.s === undefined ? sat : o.s), Lx = clamp(l + (o.l || 0), 0, 1);
+    const q = Lx < 0.5 ? Lx*(1+Sx) : Lx+Sx-Lx*Sx, p = 2*Lx-q, f = t => { t = (t+1)%1; return t < 1/6 ? p+(q-p)*6*t : t < 1/2 ? q : t < 2/3 ? p+(q-p)*(2/3-t)*6 : p; };
+    d[i] = f(H+1/3)*255; d[i+1] = f(H)*255; d[i+2] = f(H-1/3)*255; }
+  g.putImageData(id, 0, 0); return w;
 }
 const spriteCache = new Map();
 function charSprite(L, dir, step, pose, flash){

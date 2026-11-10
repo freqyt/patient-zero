@@ -191,10 +191,22 @@ function drawChar(e, L, pose, flash, rise){
   if (d===3){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(spr, 0, 0, w, h, -hw, top, w, h); lg.restore(); }
   else lg.drawImage(spr, 0, 0, w, h, x-hw, top, w, h);
 }
+// map-themed bosses repaint the stock vehicle art (cached per variant)
+const painted = (h, key, s) => h.V && h.V.paint ? propSprite(key + '|' + h.kind, () => repaint(s, h.V.paint)) : s;
+// dirt bike under a Dirt Biker
+const BIKE_SIDE = () => propSprite('bikeS', () => propCanvas(30,16,(P) => {
+  P(2,7,9,8,'#18161c'); P(19,7,9,8,'#18161c'); P(4,9,5,4,'#5a5a62'); P(21,9,5,4,'#5a5a62');
+  P(9,6,12,3,'#c83a2a'); P(9,6,12,1,'#e85a4a'); P(12,9,6,3,'#3a3a42'); P(20,3,2,5,'#3a3a42'); P(19,2,4,1,'#5a5a62'); P(6,5,5,2,'#c83a2a'); }));
+const BIKE_FRONT = () => propSprite('bikeF', () => propCanvas(12,16,(P) => {
+  P(4,6,4,9,'#18161c'); P(3,4,6,3,'#c83a2a'); P(1,2,10,1,'#5a5a62'); P(5,9,2,3,'#5a5a62'); }));
+function drawBike(h){ const d = dirOf(h.face), x = sx(h.x), y = sy(h.y) + 3;
+  if (d >= 2){ const s = BIKE_SIDE(); if (d === 3){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(s, -15, y-16); lg.restore(); } else lg.drawImage(s, x-15, y-16); }
+  else lg.drawImage(BIKE_FRONT(), x-6, y-16);
+  if (h.dash > 0 && Math.random() < 0.4) FX.smoke(h.x - Math.cos(h.face)*12, h.y, 1, 0.4); }
 function humanPose(h){ return h.type==='civ' ? (h.panic>0 ? 'panic' : 'walk') : h.type==='riot' ? 'shield' : (h.type==='beat' || h.type==='medic' || h.type==='dog') ? 'walk' : 'aim'; }
 function drawAPC(h){
   const d = dirOf(h.face), fl = h.flash > 0;
-  let s = d>=2 ? apcSide() : apcFront(d===1); if (fl) s = propSprite((d>=2?'apcSw':'apcFw'+(d===1?1:0)), () => tinted(s,'#ffffff'));
+  let s = painted(h, d>=2 ? 'apcS' : 'apcF'+(d===1?1:0), d>=2 ? apcSide() : apcFront(d===1)); if (fl) s = propSprite((d>=2?'apcSw':'apcFw'+(d===1?1:0)), () => tinted(s,'#ffffff'));
   const x = sx(h.x), y = sy(h.y) + 10;
   if (d===3){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(s, -Math.floor(s.width/2), y-s.height); lg.restore(); }
   else lg.drawImage(s, x-Math.floor(s.width/2), y-s.height);
@@ -298,7 +310,9 @@ function render(){
   for (const b of S.hb){
     if (b.shell){ const z = Math.sin(clamp(1 - b.t/b.t0,0,1)*Math.PI)*28;
       lg.fillStyle = 'rgba(12,6,18,.35)'; lg.fillRect(sx(b.x)-2, sy(b.y), 4, 1);
-      lg.fillStyle = '#170d1c'; lg.fillRect(sx(b.x)-2, sy(b.y)-12-z, 5, 5); lg.fillStyle = '#4a4a3a'; lg.fillRect(sx(b.x)-1, sy(b.y)-11-z, 3, 3);
+      if (b.drum){ lg.fillStyle = '#170d1c'; lg.fillRect(sx(b.x)-4, sy(b.y)-16-z, 9, 10); lg.fillStyle = '#b01e28'; lg.fillRect(sx(b.x)-3, sy(b.y)-15-z, 7, 8); lg.fillStyle = '#ffd860'; lg.fillRect(sx(b.x)-1, sy(b.y)-12-z, 3, 2); }
+      else if (b.molotov){ lg.fillStyle = '#170d1c'; lg.fillRect(sx(b.x)-2, sy(b.y)-13-z, 4, 7); lg.fillStyle = '#4a8a3a'; lg.fillRect(sx(b.x)-1, sy(b.y)-12-z, 2, 5); lg.fillStyle = (S.t*20|0)%2 ? '#ffd040' : '#ff7a2a'; lg.fillRect(sx(b.x)-1, sy(b.y)-15-z, 2, 2); }
+      else { lg.fillStyle = '#170d1c'; lg.fillRect(sx(b.x)-2, sy(b.y)-12-z, 5, 5); lg.fillStyle = '#4a4a3a'; lg.fillRect(sx(b.x)-1, sy(b.y)-11-z, 3, 3); }
       if (Math.random()<0.4) FX.smoke(b.x, b.y-24-z*2, 1, 0.5); }
   }
   // particles (normal blend)
@@ -336,9 +350,12 @@ function drawSorted(){
       drawProp(lg, o, x, y); }
     else if (kind===2 && o.type==='crate') drawCrate(o);
     else if (kind===2 && o.type==='hazard') drawHazard(o);
-    else if (kind===2){ if (o.elite) drawEliteUnder(o); drawChar(o, o.look, humanPose(o), o.flash > 0);
+    else if (kind===2){ const hid = o.elite === 'camo' && o.flash <= 0 && d2(o, S.player) > 120*120;   // camouflaged elites fade into the scenery
+      if (hid) lg.globalAlpha = 0.22; else if (o.elite) drawEliteUnder(o);
+      if (o.V && o.V.ai === 'biker') drawBike(o);
+      drawChar(o, o.look, humanPose(o), o.flash > 0); lg.globalAlpha = 1;
       if (o.stun > 0 && (S.t*6|0)%2===0){ lg.fillStyle = '#ffe96b'; const a = S.t*6; lg.fillRect(sx(o.x)+Math.round(Math.cos(a)*5), sy(o.y)-29, 1, 1); lg.fillRect(sx(o.x)+Math.round(Math.cos(a+3)*5), sy(o.y)-29, 1, 1); }
-      if ((o.type==='riot'||o.type==='flamer') && o.hp < o.maxHp) miniBar(sx(o.x), sy(o.y)-30, 12, o.hp/o.maxHp, '#ff4a4a'); }
+      if ((o.type==='riot'||o.type==='flamer'||(o.V && o.V.ai==='biker')) && o.hp < o.maxHp) miniBar(sx(o.x), sy(o.y)-30, 12, o.hp/o.maxHp, '#ff4a4a'); }
     else if (kind===3) drawBoss(o);
     if (kind===2 && o.swing > 0){ const x = sx(o.x), y = sy(o.y) - 12; lg.fillStyle = '#f0ecdc';
       for (let i=-3;i<=3;i++){ const a = o.face + i*0.25; lg.fillRect(Math.round(x+Math.cos(a)*11), Math.round(y+Math.sin(a)*7), 1, 1); } }
@@ -397,7 +414,7 @@ function lighting(nt){
       else if (h.type==='heli') cones.push({x, y:y-6, a:Math.atan2(sy(S.player.y)-y, sx(S.player.x)-x), sp:0.2, r:230});
       else if (h.type==='apc' || h.type==='swat'){ for (const s of [-1,1]) cones.push({x:x + Math.round(Math.cos(h.face)*28 - Math.sin(h.face)*6*s), y:y-14 + Math.round(Math.sin(h.face)*14), a:h.face, sp:0.3, r:140}); }
     }
-    for (const b of S.hb) if (b.fire) Ls.push({x:sx(b.x), y:sy(b.y)-8, r:16, spr:BAND.orange, a:0.8*b.t/0.5});
+    for (const b of S.hb) if (b.fire) Ls.push({x:sx(b.x), y:sy(b.y)-8, r:16, spr:BAND.orange, a:Math.min(0.8, 0.8*b.t/0.5)});
     for (const h of S.humans) if (h.type==='crate') Ls.push({x:sx(h.x), y:sy(h.y)-10, r:20, spr:BAND.warm, a:0.6});
     for (const it of S.items) Ls.push({x:sx(it.x), y:sy(it.y)-8, r: it.k==='chest' ? 40 : 22, spr:BAND[ITEM_BAND[it.k]], a:0.7});
     if (S.player.saw > 0) Ls.push({x:sx(S.player.x), y:sy(S.player.y)-12, r:26, spr:BAND.orange, a:0.5});
@@ -434,7 +451,14 @@ function lighting(nt){
     lg.globalAlpha = 1;
     for (const b of S.hb){
       const x = sx(b.x), y = sy(b.y);
-      if (b.fire){ const k = b.t/0.5; pcirc(lg, x, y-8, 1+ (1-k)*3, k>0.6?'#fff0a0':k>0.3?'#ffa030':'#d04020'); }
+      if (b.patch){ const f = ((S.t*10 + b.x) | 0) % 3, fade = Math.min(1, b.t/0.6); lg.globalAlpha = fade;   // burning ground
+        pell(lg, x, y, 5, 2, '#5a1a08'); lg.fillStyle = '#e85a1a'; lg.fillRect(x-3, y-4-f, 2, 4+f); lg.fillRect(x+1, y-5+f, 2, 5-f);
+        lg.fillStyle = '#ffd040'; lg.fillRect(x-2, y-2-f, 1, 2); lg.fillRect(x+1, y-3+f, 1, 2); lg.globalAlpha = 1; }
+      else if (b.fire){ const k = b.t/0.5; pcirc(lg, x, y-8, 1+ (1-k)*3, k>0.6?'#fff0a0':k>0.3?'#ffa030':'#d04020'); }
+      else if (b.bee){ lg.fillStyle = '#170d1c'; lg.fillRect(x-1, y-13, 3, 3); lg.fillStyle = (S.t*30|0)%2 ? '#ffd040' : '#2a2018'; lg.fillRect(x, y-12, 1, 1);
+        lg.fillStyle = '#ffd040'; lg.fillRect(x+2, y-10, 1, 1); lg.fillRect(x-3, y-11, 1, 1); }
+      else if (b.harpoon){ const ux = b.vx/b.spd, uy = b.vy/b.spd; lg.fillStyle = '#c8c8d0'; for (let i=0;i<7;i++) lg.fillRect(x-Math.round(ux*i), y-12-Math.round(uy*i*0.7), 1, 1);
+        if (!b.owner.dead){ lg.fillStyle = '#8a7a5a'; const ox = sx(b.owner.x), oy = sy(b.owner.y)-12, n = Math.hypot(x-ox, y-oy)|0; for (let i=0;i<n;i+=2) lg.fillRect(Math.round(ox+(x-ox)*i/n), Math.round(oy+(y-12-oy)*i/n), 1, 1); } }
       else if (!b.shell){ lg.fillStyle = '#fff2a0'; lg.fillRect(x, y-12, 2, 1); lg.fillStyle = '#c08030';
         lg.fillRect(x-Math.round(b.vx/b.spd*2), y-12-Math.round(b.vy/b.spd*1.4), 1, 1); }
     }
@@ -513,7 +537,7 @@ function drawHUD(nt){
 
   const boss = S.humans.find(h => h.boss);
   if (boss){ const bw = Math.min(160, LW-24), bx = Math.round(LW/2 - bw/2), by = narrow ? 70 : 38;
-    ptext(lg, BOSS_NAME[boss.type], LW/2, by-9, '#ff8a7a', {align:'center', shadow:'#170d1c'});
+    ptext(lg, enemyName(boss), LW/2, by-9, '#ff8a7a', {align:'center', shadow:'#170d1c'});
     pbar(bx, by, bw, 3, boss.hp/boss.maxHp, '#ffa080', '#d02828'); }
 
   // mutation slots: owned icons with level pips, then empty frames up to the cap
@@ -691,7 +715,7 @@ const HELI = (() => propCanvas(80,38,(P) => {
 }))();
 const HELI_W = tinted(HELI, '#ffffff');
 function drawHeli(h){
-  const x = sx(h.x), y = sy(h.y) - 48, flip = Math.cos(h.face) < 0, s = h.flash > 0 ? HELI_W : HELI;
+  const x = sx(h.x), y = sy(h.y) - 48, flip = Math.cos(h.face) < 0, s = h.flash > 0 ? HELI_W : painted(h, 'heli', HELI);
   const bob = Math.round(Math.sin(S.t*3)*1.5);
   lg.save(); lg.translate(x, 0); if (flip) lg.scale(-1,1);
   lg.drawImage(s, -40, y - 19 + bob);
@@ -721,7 +745,7 @@ function drawMinimap(x0, y0, w, h){
   const dot = (wx, wy, col, sz=1) => { const x = Math.round(cx + (wx-p.x)*sc), y = Math.round(cy + (wy-p.y)*sc);
     if (x <= x0+1 || x+sz > x0+w-1 || y <= y0+1 || y+sz > y0+h-1) return; lg.fillStyle = col; lg.fillRect(x, y, sz, sz); };
   lg.fillStyle = 'rgba(255,255,255,.07)'; lg.fillRect(Math.round(cx - VW*sc/2), Math.round(cy - VH*sc/2), Math.round(VW*sc), Math.round(VH*sc));
-  for (const o of S.humans){ if (o.boss || o.type==='crate') continue; dot(o.x, o.y, o.type==='hazard' ? '#ff8a3a' : '#8a4a52'); }
+  for (const o of S.humans){ if (o.boss || o.type==='crate' || o.elite==='camo') continue; dot(o.x, o.y, o.type==='hazard' ? '#ff8a3a' : '#8a4a52'); }
   for (const m of S.minions) dot(m.x, m.y, '#5a9a3a');
   for (const it of S.items) dot(it.x, it.y, ITEM_COL[it.k], it.k === 'chest' ? 3 : 2);
   for (const o of S.humans) if (o.type==='crate') dot(o.x, o.y, '#ffd860', 2);
@@ -733,6 +757,13 @@ function drawMinimap(x0, y0, w, h){
 // ---------- new content visuals ----------
 // spore mines and The Cure's gas, drawn on the ground layer
 function drawGroundFx(){
+  for (const t of S.traps || []){ const x = sx(t.x), y = sy(t.y), shut = t.shut > 0;   // bear traps: open jaws, or snapped shut
+    lg.fillStyle = 'rgba(12,6,18,.35)'; lg.fillRect(x-5, y+1, 11, 1);
+    if (shut){ lg.fillStyle = '#5a5a62'; lg.fillRect(x-4, y-3, 9, 3); lg.fillStyle = '#c8c8d0'; for (let i=-4;i<5;i+=2) lg.fillRect(x+i, y-4, 1, 1); }
+    else { lg.fillStyle = '#5a5a62'; lg.fillRect(x-5, y-1, 11, 1); lg.fillRect(x-6, y-4, 1, 3); lg.fillRect(x+6, y-4, 1, 3);
+      lg.fillStyle = t.arm > 0 ? '#8a8a92' : '#c8c8d0'; for (let i=-5;i<6;i+=2){ lg.fillRect(x+i, y-3, 1, 1); } lg.fillStyle = '#a8a060'; lg.fillRect(x-1, y-1, 3, 1); } }
+  for (const h of S.humans) if (h.reel && !h.dead){ const tg = h.reel.tg, x1 = sx(h.x), y1 = sy(h.y)-12, x2 = sx(tg.x), y2 = sy(tg.y)-12, n = Math.hypot(x2-x1, y2-y1)|0;
+    lg.fillStyle = '#8a7a5a'; for (let i=0;i<n;i+=2) lg.fillRect(Math.round(x1+(x2-x1)*i/n), Math.round(y1+(y2-y1)*i/n), 1, 1); }
   for (const m of S.mines){ const x = sx(m.x), y = sy(m.y), lit = m.arm <= 0 && ((S.t*4 + m.seed*4)|0) % 2;
     lg.fillStyle = 'rgba(12,6,18,.35)'; lg.fillRect(x-3, y+1, 6, 1);
     pell(lg, x, y-2, 3, 2, lit ? '#9be03a' : '#4e8a1e'); lg.fillStyle = '#c4ff6a'; lg.fillRect(x-1, y-4, 1, 1); }
@@ -807,13 +838,13 @@ function vanFront(back){ return propSprite('vanF'+(back?1:0), () => propCanvas(4
 })); }
 function drawVan(h){
   const d = dirOf(h.face), fl = h.flash > 0;
-  let s = d >= 2 ? vanSide() : vanFront(d === 1); if (fl) s = propSprite((d>=2 ? 'vanSw' : 'vanFw'+(d===1?1:0)), () => tinted(s, '#ffffff'));
+  let s = painted(h, d>=2 ? 'vanS' : 'vanF'+(d===1?1:0), d >= 2 ? vanSide() : vanFront(d === 1)); if (fl) s = propSprite((d>=2 ? 'vanSw' : 'vanFw'+(d===1?1:0)), () => tinted(s, '#ffffff'));
   const x = sx(h.x), y = sy(h.y) + 10;
   if (d === 3){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(s, -Math.floor(s.width/2), y-s.height); lg.restore(); }
   else lg.drawImage(s, x-Math.floor(s.width/2), y-s.height);
-  const on = (S.t*8|0)%2, ty = y - s.height + 1;   // flashing light bar
-  lg.fillStyle = on ? '#ff3030' : '#3050ff'; lg.fillRect(x-7, ty, 6, 2);
-  lg.fillStyle = on ? '#3050ff' : '#ff3030'; lg.fillRect(x+1, ty, 6, 2);
+  const on = (S.t*8|0)%2, ty = y - s.height + 1, A = h.V ? ['#ffb020','#5a3a10'] : ['#ff3030','#3050ff'];   // flashing light bar (amber on work vehicles)
+  lg.fillStyle = on ? A[0] : A[1]; lg.fillRect(x-7, ty, 6, 2);
+  lg.fillStyle = on ? A[1] : A[0]; lg.fillRect(x+1, ty, 6, 2);
   if (h.hp < h.maxHp*0.5 && Math.random() < 0.25) FX.smoke(h.x+rand(-20,20), h.y-30, 1, 0.8);
 }
 
