@@ -12,17 +12,18 @@ function setState(st){
   $('pause').classList.toggle('show', st==='pause');
   $('over').classList.toggle('show', st==='over');
 }
-function startGame(){
+function startGame(cid){
+  cid = CHARS[cid] ? cid : selChar; const CH = CHARS[cid];
   chunkCache.clear();
   for (const P of propCache.values()) for (const pr of P){ pr.live = false; pr.gone = false; }   // gas pumps etc. rebuilt each run
   $('shop').classList.remove('show');
-  const hp = 100 + 10*META.rank('flesh');
+  const hp = 100 + 10*META.rank('flesh') + (CH.hp || 0);
   S = {
     t:0, state:'play',
     player:{x:0,y:40,r:12,hp,maxHp:hp,biteCd:0,biteT:0,biteA:0,face:Math.PI/2,flash:0,frenzy:0,devourCd:0,moving:false,saw:0},
     humans:[], minions:[], corpses:[], bodies:[], pb:[], hb:[], gems:[], parts:[], pools:[], texts:[], lights:[], items:[], itemT:4, flashT:0,
-    kills:0, bonusDna:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:{spit:1}, evo:{}, gotAt:{spit:0},
-    st:{dmg:{}, kills:{}, heal:{}, taken:{}, risen:0, lost:0, devours:0, crates:0, items:{}, sawTime:0}, rerolls:3 + META.rank('reroll'), spawnAcc:0, shake:0,
+    kills:0, bonusDna:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:Object.assign({}, CH.start), evo:{}, gotAt:Object.fromEntries(Object.keys(CH.start).map(k => [k, 0])), ch:CH, cid, luckBonus:CH.luck || 0, newChars:[],
+    st:{dmg:{}, kills:{}, heal:{}, taken:{}, risen:0, lost:0, devours:0, crates:0, items:{}, sawTime:0}, rerolls:3 + META.rank('reroll') + (CH.rerolls || 0), spawnAcc:0, shake:0,
     wt:{spit:0,spikes:1.5,screech:2,trail:0}, banner:null, crowd:null, nextCrowd:14,
     plan:makeSpawnPlan(), bossPlan:shuffle(BOSS_POOL.slice()).slice(0,2), mines:[], cures:[], bosses:{}, maxHorde:0, wasNight:false, finalWave:false, winT:0, hazT:0, overtime:false,
   };
@@ -33,6 +34,7 @@ function startGame(){
   for (let i=0;i<7;i++){ const a = rand(0,TAU), d = rand(110,200); spawnHuman('civ', S.player.x+Math.cos(a)*d, S.player.y+Math.sin(a)*d*0.7); }
   // DNA Lab: Patient Origin starts you with a small horde
   for (let i=0;i<Math.min(hordeCap(), 2*META.rank('origin'));i++){ const a = rand(0,TAU); addMinion(S.player.x+Math.cos(a)*40, S.player.y+Math.sin(a)*30, 'civ', pick(LOOKS.civ)); }
+  for (const [t, c] of Object.entries(CH.minions || {})) for (let i=0;i<c;i++){ const a = rand(0,TAU); addMinion(S.player.x+Math.cos(a)*36, S.player.y+Math.sin(a)*26, t, pick(LOOKS[t])); }
   banner('THE OUTBREAK BEGINS', 'HUNT THE LIVING');
 }
 const L = k => S.mods[k] || 0;
@@ -40,7 +42,7 @@ const E = k => !!S.evo[k];
 function nightAmt(){ const p = (S.t % 100)/100; return clamp((p-0.62)/0.05,0,1) * clamp((1-p)/0.04,0,1); }
 const infectChance = () => Math.min(0.95, 0.40 + 0.10*L('contagion') + 0.03*META.rank('virulence'));
 // a smaller horde of tougher zombies (cap 5 -> 20, +6 with Horde King)
-const hordeCap = () => 5 + 3*L('horde') + (E('alpha') ? 6 : 0);
+const hordeCap = () => 5 + 3*L('horde') + (E('alpha') ? 6 : 0) + (S.ch.horde || 0);
 const HORDE_HP = 1.8, HORDE_DMG = 14;
 function banner(text, sub){ S.banner = {text, sub, t:3.2}; }
 function floatText(x,y,txt,col,crit){ S.texts.push({x,y,txt,col,t:crit ? 0.7 : 0.9, crit}); }
@@ -101,6 +103,7 @@ function dmgHuman(h, dmg, src, quiet){
   if (h.type==='riot' && src!=='bite' && src!=='minion' && src!=='saw' && src!=='bomb') dmg *= 0.5;
   if (h.elite==='armored') dmg *= 0.6;
   if (L('might') && !NOT_MINE.has(src)) dmg *= 1 + 0.12*L('might');
+  if (!NOT_MINE.has(src)) dmg *= S.ch.dmg || 1; else if (src === 'minion') dmg *= S.ch.mdmg || 1;
   stat('dmg', src, Math.min(dmg, Math.max(0, h.hp))); h.lastSrc = src;
   h.hp -= dmg;
   if (!quiet){ h.flash = 0.07; if (Math.random()<0.5) FX.blood(h.x,h.y,2,false); }
@@ -122,14 +125,14 @@ function killHuman(h){
     heal(60, 'boss'); S.shake = 16;
     for (let i=0;i<(h.type==='heli'?6:2);i++) FX.explosion(h.x+rand(-40,40), h.y+rand(-30,20), rand(80,140), 'fire');
     if (h.type==='heli'){ S.winT = 2.8; banner('GUNSHIP DOWN', 'THE CITY IS YOURS'); SFX.play('nuke'); }
-    else { banner(BOSS_NAME[h.type]+' DOWN','IT DROPPED A BOSS CHEST'); S.items.push({k:'chest', x:h.x, y:h.y, t:1e9, seed:Math.random(), pop:0.5}); }
+    else { S.st.bossKills = (S.st.bossKills||0) + 1; banner(BOSS_NAME[h.type]+' DOWN','IT DROPPED A BOSS CHEST'); S.items.push({k:'chest', x:h.x, y:h.y, t:1e9, seed:Math.random(), pop:0.5}); }
     return;
   }
   if (Math.random() < infectChance()) S.corpses.push({x:h.x, y:h.y, t:0.9, max:0.9, v:h.type, look:h.look});
   else FX.corpse(h);
 }
 function addMinion(x,y,v,look){
-  const V = VAR[v], hm = (1 + 0.15*L('alpha')) * HORDE_HP;
+  const V = VAR[v], hm = (1 + 0.15*L('alpha')) * HORDE_HP * (S.ch.mhp || 1);
   S.minions.push({x,y,v,r:V.r,hp:V.hp*hm,maxHp:V.hp*hm,atkCd:0,rt:0,target:null,slot:Math.random()*TAU,flash:0,
     look: zombieLook(look), rise:0.45, face:Math.PI/2, wob:Math.random()*TAU});
   S.st.risen++;
@@ -147,7 +150,7 @@ function hurtMinion(m, dmg){
 function hurtPlayer(dmg, src){
   const p = S.player; if (S.winT > 0) return;
   if (E('spikes')) dmg *= 0.65;
-  dmg *= 1 - 0.04*L('chitin');
+  dmg *= (1 - 0.04*L('chitin')) * (1 - (S.ch.armor || 0));
   stat('taken', src || 'other', Math.min(dmg, Math.max(0, p.hp)));
   SFX.play('hurt'); p.hp -= dmg; p.flash = 0.1; S.shake = Math.min(8, S.shake + dmg*0.5);
   if (p.hp <= 0){ p.hp = 0; gameOver(false); }
@@ -190,7 +193,8 @@ function gameOver(win){
   const mm = Math.floor(S.t/60), ss = String(Math.floor(S.t%60)).padStart(2,'0');
   $('overStats').innerHTML = `TIME <span>${mm}:${ss}</span> &middot; LEVEL <span>${S.level}</span><br>DEVOURED <span>${S.kills}</span> &middot; DNA <span>+${dna}</span>`;
   $('overDetail').innerHTML = statsHTML();
-  $('overDna').textContent = `DNA BANK: ${META.dna}`;
+  checkUnlocks(win);
+  $('overDna').innerHTML = `DNA BANK: ${META.dna}` + (S.newChars.length ? `<br><span style="color:#ffe070">UNLOCKED: ${S.newChars.join(', ')}</span>` : '');
 }
 
 // ---------- post-game breakdown ----------
@@ -200,7 +204,7 @@ const SRC_INFO = {
   saw:{n:'Bone Gatling', ic:'💀'}, gat:{n:'Bone Gatling', ic:'💀'}, lash:{mut:'lash'}, spores:{mut:'spores'}, mirror:{evo:'chitin'}, elite:{n:'Elite blasts', ic:'💥'}, bomb:{n:'Biohazard', ic:'☣️'}, nova:{evo:'aura'}, acid:{evo:'spit'}, other:{n:'Other', ic:'❔'},
 };
 const HEAL_INFO = {hide:['Necrotic Hide','🛡️'], hunger:['Ravenous','🍖'], devour:['Devour','🧟'], heart:['Fresh Hearts','🫀'], chest:['Boss Chests','🎁'],
-  feast:['Feast','🩸'], leech:['Blood Leech','🩸'], lash:['Blood Whip','🐙'], chitin:['Chitin (blocked)','🐚'], boss:['Boss Kills','💀'], other:['Other','❔']};
+  feast:['Feast','🩸'], regen:['Natural Regen','💚'], leech:['Blood Leech','🩸'], lash:['Blood Whip','🐙'], chitin:['Chitin (blocked)','🐚'], boss:['Boss Kills','💀'], other:['Other','❔']};
 const TAKEN_INFO = {beat:['Baton Cops','👮'], cop:['Pistol Cops','🔫'], soldier:['Soldiers','🪖'], riot:['Riot Police','🛡️'], flamer:['Flamethrowers','🔥'],
   apc:['Armored Carrier','🚛'], heli:['Gunship','🚁'], shell:['Shells','💣'], dog:['K9 Units','🐕'], grenadier:['Grenadiers','💣'], sniper:['Snipers','🎯'], swat:['SWAT Van','🚓'], jugg:['Juggernaut','🦾'], cure:['The Cure','💉'], elite:['Volatile Elites','💥'], other:['Other','❔']};
 const ITEM_NAMES = {heart:'Hearts', magnet:'Magnets', saw:'Gatlings', clover:'Clovers', bomb:'Biohazards', dice:'Dice', chest:'Chests'};
@@ -426,17 +430,19 @@ function update(dt){
   const ml = Math.hypot(mx,my);
   p.moving = ml > 0.05;
   if (p.moving){ const k = Math.min(1, ml); mx /= ml; my /= ml;
-    const spd = 160*GS*(1+0.1*L('legs'))*(E('trail')?1.15:1)*(1+0.2*nt)*(p.frenzy>0?1.4:1)*k;
+    const spd = 160*GS*(S.ch.spd||1)*(1+0.1*L('legs'))*(E('trail')?1.15:1)*(1+0.2*nt)*(p.frenzy>0?1.4:1)*k;
     p.x += mx*spd*dt; p.y += my*spd*dt; p.face = Math.atan2(my,mx); }
   p.frenzy -= dt; p.devourCd -= dt; p.flash -= dt; p.biteT -= dt;
   if (L('hide')) heal(0.4*L('hide')*dt, 'hide');
+  if (S.ch.regen) heal(S.ch.regen*dt, 'regen');
+  S.unlockT = (S.unlockT || 0) - dt; if (S.unlockT <= 0){ S.unlockT = 0.5; checkUnlocks(false); }
 
   // bite
   p.biteCd -= dt;
   if (p.biteCd <= 0){
     const reach = 18 + 6*L('jaws'); let tgt = null, bd = 1e9;
     for (const h of S.humans){ if (h.dead || h.air) continue; const d = Math.sqrt(d2(p,h))-h.r-p.r; if (d<reach && d<bd){ bd=d; tgt=h; } }
-    if (tgt){ const dmg = 20*(1+0.3*L('jaws'))*(p.frenzy>0?2:1)*(1+0.3*nt)*(1+0.04*(S.level-1));
+    if (tgt){ const dmg = 20*(S.ch.bite||1)*(1+0.3*L('jaws'))*(p.frenzy>0?2:1)*(1+0.3*nt)*(1+0.04*(S.level-1));
       SFX.play('bite'); dmgHuman(tgt, crit(tgt, dmg), 'bite'); p.biteCd = (p.frenzy>0 ? 0.28 : 0.45)/AS(); p.biteT = 0.12; p.biteA = Math.atan2(tgt.y-p.y, tgt.x-p.x); }
   }
 
@@ -673,13 +679,14 @@ addEventListener('keydown', e => {
   if (k==='m'){ SFX.toggle(); return; }
   if (k===' ' || k.startsWith('arrow')) e.preventDefault();
   if ($('shop').classList.contains('show')){ if (k==='escape') closeShop(); return; }
-  if (!S){ if (k==='enter' || k===' ') startGame(); return; }
+  if ($('chars').classList.contains('show')){ if (k==='escape') closeChars(); if (k==='enter') pickChar(selChar); return; }
+  if (!S){ if (k==='enter' || k===' ') openChars('title'); return; }
   if (S.state==='play'){
     if (k==='e' || k==='shift') devour();
     if (k==='p' || k==='escape') setState('pause');
   } else if (S.state==='pause'){ if (k==='p' || k==='escape') setState('play'); }
   else if (S.state==='level'){ if (k>='1' && k<='5'){ const c = $('cards').children[+k-1]; if (c) c.click(); } if (k==='r') rerollLevel(); }
-  else if (S.state==='over'){ if (k==='r' || k==='enter') startGame(); }
+  else if (S.state==='over'){ if (k==='r') startGame(S.cid); if (k==='enter') openChars('over'); }
 });
 addEventListener('keyup', e => { K[e.key.toLowerCase()] = false; });
 addEventListener('blur', () => { for (const k in K) K[k] = false; resetStick(); if (S && S.state==='play') setState('pause'); });
@@ -725,8 +732,9 @@ function drawTouchUI(){
 }
 
 // ---------- boot ----------
-$('startBtn').onclick = startGame;
-$('againBtn').onclick = startGame;
+$('startBtn').onclick = () => openChars('title');
+$('againBtn').onclick = () => openChars('over');
+$('charsBack').onclick = closeChars;
 $('labBtn').onclick = () => openShop('title');
 $('labBtn2').onclick = () => openShop('over');
 $('shopBack').onclick = closeShop;

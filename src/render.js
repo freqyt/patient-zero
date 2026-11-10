@@ -352,7 +352,7 @@ function drawSorted(){
     else if (kind===6){ const pl = o;
       const sawBehind = pl.saw > 0 && dirOf(pl.face)===1;
       if (sawBehind) drawSaw(pl);
-      drawChar(pl, playerLook(S.mods), 'reach', pl.flash > 0);
+      drawChar(pl, playerLook(S.mods, S.cid), 'reach', pl.flash > 0);
       if (pl.saw > 0 && !sawBehind) drawSaw(pl);
       drawPlayerFx(pl);
       if (pl.biteT > 0){ const a = pl.biteA, x = sx(pl.x) + Math.round(Math.cos(a)*10), y = sy(pl.y) - 14 + Math.round(Math.sin(a)*6);

@@ -117,10 +117,22 @@ const PLAYER_BASE = {type:'player', player:true, zombie:true, skin: shades('#9cc
   blood: [[1,3],[-2,5],[2,6]]};
 // the player's sprite is rebuilt whenever the mutation set changes, so every mutation shows on the body
 const PL_CACHE = new Map();
-function playerLook(mods){
-  const sig = Object.keys(mods).sort().map(k => k+mods[k]).join(','); let L = PL_CACHE.get(sig); if (L) return L;
+// each character has its own base look; mutations are layered on top
+const CHAR_BASE = {};
+function charBase(cid){
+  if (CHAR_BASE[cid]) return CHAR_BASE[cid];
+  if (typeof CHARS === 'undefined' || !CHARS[cid]) return PLAYER_BASE;   // chars.js not loaded yet: don't cache a wrong base
+  const c = CHARS[cid].look, skin = c.skin || '#9ccc48';
+  return CHAR_BASE[cid] = Object.assign({}, PLAYER_BASE, {skin: shades(skin), shirt: shades(c.shirt || '#c4d8e0'),
+    pants: c.gown ? shades(skin) : shades(c.pants || '#2a2a30'), shoe: c.gown ? shadeHex(skin,-0.3) : '#2a2026',
+    gear: c.gear === undefined ? 'brain' : c.gear, gown: !!c.gown, hair: shades(c.hair || '#2a1a14'), style: c.style ?? 2,
+    vest: !!c.vest, medic: !!c.medic, apron: !!c.apron, floral: !!c.floral, headband: !!c.headband});
+}
+function playerLook(mods, cid){
+  cid = cid || 'zero';
+  const sig = cid + '|' + Object.keys(mods).sort().map(k => k+mods[k]).join(','); let L = PL_CACHE.get(sig); if (L) return L;
   const lg = mods.legs || 0;
-  L = Object.assign({}, PLAYER_BASE, {id: ++LOOKID, muts: Object.assign({}, mods),
+  L = Object.assign({}, charBase(cid), {id: ++LOOKID, muts: Object.assign({}, mods),
     rowOps: {dup: [20,25].concat(lg>=2 ? [24] : [], lg>=4 ? [26] : []), dupCol: 12}});
   PL_CACHE.set(sig, L); return L;
 }
@@ -267,6 +279,8 @@ function buildChar(L, dir, step, pose){
   if (L.type==='soldier' && !side){ P(X-4,13,1,1,'#3e4a28'); P(X+2,18,1,1,'#3e4a28'); }
   if (L.type==='cop' && front){ P(X+1,13,1,1,'#f0d050'); P(X-4,18,8,1,'#141420'); }
   if (L.medic && !side){ P(X-1,14,3,1,'#d02020'); P(X,13,1,3,'#d02020'); }
+  if (L.apron && !back){ if (side) P(X+1,13,2,8,'#e8e0d0'); else { P(X-3,13,6,8,'#e8e0d0'); P(X-3,13,6,1,'#f8f4ec'); P(X-1,16,2,2,'#a01828'); P(X+1,19,1,1,'#a01828'); } }
+  if (L.floral && !side){ P(X-3,13,1,1,'#ffe060'); P(X+1,15,1,1,'#ffe060'); P(X-2,17,1,1,'#ffe060'); P(X+2,18,1,1,'#7ad0ff'); P(X-1,14,1,1,'#7ad0ff'); }
   if (Z && L.blood && !back) for (const [bx,by] of L.blood) P(X+bx,13+by,side?1:2,1,'#8a1424');
   if (Z && !L.gown && !side){ g.clearRect(X-3,19,1,1); g.clearRect(X,19,1,1); g.clearRect(X+2,19,1,1); }
   if (L.bloat){ const pu = '#b4f04a';
@@ -346,6 +360,7 @@ function buildChar(L, dir, step, pose){
       if (L.style===2) P(X-2,hy,3,1,sk[1]);
     }
   }
+  if (L.headband){ if (side) P(X-3+hun,hy+1,7,1,'#e03a3a'); else P(X-4,hy+1,8,1,'#e03a3a'); }
   // headgear
   const hx = side ? hun : 0;
   switch (L.gear){
@@ -370,6 +385,8 @@ function buildChar(L, dir, step, pose){
     case 'medic':
       if (side){ P(X-3+hx,hy-1,7,3,'#f0f0e8'); P(X+3+hx,hy+1,3,1,'#c8c8c0'); }
       else { P(X-4,hy-1,8,3,'#f0f0e8'); if (front){ P(X-4,hy+2,8,1,'#c8c8c0'); P(X-1,hy-1,2,1,'#d02020'); P(X-2,hy,4,1,'#d02020'); } }
+      break;
+    case 'headband':
       break;
     case 'beret':
       if (side){ P(X-3+hx,hy-1,7,2,'#2a3a1a'); P(X-4+hx,hy,2,2,'#2a3a1a'); }

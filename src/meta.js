@@ -2,7 +2,7 @@
 // ---------- DNA Lab: persistent upgrades bought with DNA earned each run ----------
 const META = (() => {
   const KEY = 'pz-meta-v1';
-  let data = {dna:0, up:{}, best:{t:0, kills:0, wins:0}};
+  let data = {dna:0, up:{}, best:{t:0, kills:0, wins:0}, chars:['zero']};
   try { const s = localStorage.getItem(KEY); if (s) data = Object.assign(data, JSON.parse(s)); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
   const UPS = {
@@ -18,6 +18,8 @@ const META = (() => {
   const cost = k => UPS[k].cost * (rank(k) + 1);
   return {
     UPS, rank, cost,
+    hasChar: id => data.chars.includes(id),
+    unlockChar(id){ if (data.chars.includes(id)) return false; data.chars.push(id); save(); return true; },
     get dna(){ return data.dna; }, get best(){ return data.best; },
     buy(k){ if (rank(k) >= UPS[k].max || data.dna < cost(k)) return false; data.dna -= cost(k); data.up[k] = rank(k) + 1; save(); return true; },
     // DNA for a run: kills, level reached and time survived; big bonus for a win
