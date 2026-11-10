@@ -268,6 +268,7 @@ function render(){
   for (const h of S.humans){ trackWalk(h); drawList.push(h.y, h.boss?3:2, h); }
   for (const m of S.minions){ trackWalk(m); drawList.push(m.y, 4, m); }
   for (const c of S.corpses) drawList.push(c.y-1, 5, c);
+  for (const it of S.items) drawList.push(it.y, 7, it);
   trackWalk(p); drawList.push(p.y, 6, p);
   drawSorted();
 
@@ -301,6 +302,7 @@ function render(){
   // floating text
   for (const t of S.texts){ if (t.t < 0.15 && (S.t*30|0)%2) continue; ptext(lg, t.txt, sx(t.x), sy(t.y)-30, t.col, {align:'center', shadow:'#170d1c'}); }
   post(nt);
+  if (S.flashT > 0){ lg.globalAlpha = Math.min(1, S.flashT/0.7)*0.85; lg.fillStyle = '#d8ffb0'; lg.fillRect(0,0,LW,LH); lg.globalAlpha = 1; }
   drawHUD(nt);
   blit();
 }
@@ -325,8 +327,12 @@ function drawSorted(){
       const s = corpseSprite(o.look); lg.drawImage(s, x-14, y-14);
       if ((S.t*10|0)%2) { lg.fillStyle = '#b7ff4a'; lg.fillRect(x+rand(-6,6)|0, y-2-(k*6|0), 1, 1); }
       if (Math.random() < 0.15) FX.bubble(o.x+rand(-10,10), o.y); }
+    else if (kind===7) drawItem(o);
     else if (kind===6){ const pl = o;
+      const sawBehind = pl.saw > 0 && dirOf(pl.face)===1;
+      if (sawBehind) drawSaw(pl);
       drawChar(pl, playerLook(S.mods), 'reach', pl.flash > 0);
+      if (pl.saw > 0 && !sawBehind) drawSaw(pl);
       drawPlayerFx(pl);
       if (pl.biteT > 0){ const a = pl.biteA, x = sx(pl.x) + Math.round(Math.cos(a)*10), y = sy(pl.y) - 14 + Math.round(Math.sin(a)*6);
         lg.fillStyle = '#f0ecdc'; for (let i=-2;i<=2;i++){ lg.fillRect(x+i*2, y-3, 1, 2); lg.fillRect(x+i*2, y+2, 1, 2); } } }
@@ -368,6 +374,8 @@ function lighting(nt){
       else if (h.boss){ for (const s of [-1,1]) cones.push({x:x + Math.round(Math.cos(h.face)*28 - Math.sin(h.face)*6*s), y:y-14 + Math.round(Math.sin(h.face)*14), a:h.face, sp:0.3, r:140}); }
     }
     for (const b of S.hb) if (b.fire) Ls.push({x:sx(b.x), y:sy(b.y)-8, r:16, spr:BAND.orange, a:0.8*b.t/0.5});
+    for (const it of S.items) Ls.push({x:sx(it.x), y:sy(it.y)-8, r:22, spr:BAND[ITEM_BAND[it.k]], a:0.7});
+    if (S.player.saw > 0) Ls.push({x:sx(S.player.x), y:sy(S.player.y)-12, r:26, spr:BAND.orange, a:0.5});
     for (const b of S.pb) if (b.k==='spit') Ls.push({x:sx(b.x), y:sy(b.y)-12, r:12, spr:BAND.toxic, a:0.7});
     for (const l of S.lights) Ls.push({x:sx(l.x), y:sy(l.y)-10, r:l.r/2, spr:l.spr, a:l.a*l.t/l.max});
     for (const q of S.parts) if (q.k==='fire') Ls.push({x:sx(q.x), y:sy(q.y)-6, r:q.r*2.2, spr:BAND.orange, a:0.5*q.t/q.max});
@@ -498,6 +506,8 @@ function drawHUD(nt){
       ptext(lg, shown, LW/2 - textW(b.text,sc)/2, y-2, '#c8ff7a', {shadow:'#170d1c', scale:sc});
       if (el > 0.6) ptext(lg, b.sub, LW/2, y+(sc===2?15:8), '#e8e0d0', {align:'center', shadow:'#170d1c'}); } }
 
+  if (p.saw > 0){ win(3,46,104,12); ptext(lg, 'SAW', 7, 49, (S.t*8|0)%2 ? '#ffb040' : '#ffe0a0'); pbar(28,51,74,3,p.saw/8,'#ffd080','#e07a20'); }
+  for (const it of S.items) if (it.t > 5) edgeArrow(it.x, it.y, ITEM_COL[it.k]);
   if (S.crowd) edgeArrow(S.crowd.x, S.crowd.y, (S.t*6|0)%2 ? '#ff9ccc' : '#c84a8a');
   if (boss) edgeArrow(boss.x, boss.y, '#ff4a3a');
 
@@ -507,3 +517,74 @@ function drawHUD(nt){
 }
 let tvCache = null, tvKey = '';
 function tintedVig(){ const key = LW+'x'+LH; if (tvKey !== key){ tvCache = tinted(vig, '#c81030'); tvKey = key; } return tvCache; }
+
+// ---------- item pickups ----------
+function itemSpr(rows, pal){ const c = mk(rows[0].length+2, rows.length+2); c.getContext('2d').drawImage(pixIcon(rows, pal), 1, 1); return outline(c); }
+function rot90(c, dir){ const o = mk(c.height, c.width), g = o.getContext('2d');
+  g.translate(o.width/2, o.height/2); g.rotate(dir*Math.PI/2); g.drawImage(c, -c.width/2, -c.height/2); return o; }
+const SAW_PAL = {H:'#2e2e34', B:'#e07a20', O:'#ffb848', G:'#a8acb4', K:'#4a4e56', T:'#e8ecf2'};
+const SAW_ROWS = f => [
+  '..HH............',
+  '.HBBBBB.'+(f ? 'T.T.T.T.' : '.T.T.T.T'),
+  'HBOOOBBGGGGGGGGT',
+  'HBOOOBB'+(f ? 'GKGKGKGKG' : 'KGKGKGKGK'),
+  '.HBBBBBGGGGGGGGT',
+  '..HH....'+(f ? '.T.T.T.T' : 'T.T.T.T.')];
+const SAWF = [0,1].map(f => itemSpr(SAW_ROWS(f), SAW_PAL));
+const SAWD = SAWF.map(c => rot90(c, 1)), SAWU = SAWF.map(c => rot90(c, -1));
+const ITEM_SPR = {
+  heart: itemSpr([
+    '...VV.A....',
+    '.RRR.V.RRR.',
+    'RLLRR.RRRRD',
+    'RLRRRRRRRRD',
+    'RRRRRRRRRRD',
+    '.RRRRRRRRD.',
+    '..RRRRRRD..',
+    '...RRRRD...',
+    '....RRD....',
+    '.....D.....'], {R:'#c81c34', L:'#ff7a8a', D:'#801020', V:'#7a5ab0', A:'#d84a5a'}),
+  magnet: itemSpr([
+    '..RRRRRRR..',
+    '.RRLLLLLRR.',
+    'RRL.....RRD',
+    'RL.......RD',
+    'RL.......RD',
+    'RL.......RD',
+    'RL.......RD',
+    'SW.......SD',
+    'SW.......SD',
+    'SS.......SD'], {R:'#d82838', L:'#ff7080', D:'#8a1420', S:'#c8ccd4', W:'#ffffff'}),
+  saw: SAWF[0],
+  bomb: itemSpr([
+    '.CCCCCCCCC.',
+    'YYYYYYYYYYY',
+    'YLYYYKYYYYD',
+    'YLYYKKKYYYD',
+    'YLYKYKYKYYD',
+    'YLKKYYYKKYD',
+    'YLYYYKYYYYD',
+    'YLYYYYYYYYD',
+    'YYYYYYYYYYD',
+    '.CCCCCCCCC.',
+    '..GG...G...'], {C:'#8a8e96', Y:'#e8c830', L:'#fff080', D:'#a08010', K:'#1a1a1a', G:'#8ae03a'}),
+};
+const ITEM_COL = {heart:'#ff6a7a', magnet:'#ff9ccc', saw:'#ffb040', bomb:'#9be03a'};
+const ITEM_BAND = {heart:'red', magnet:'pink', saw:'orange', bomb:'toxic'};
+function drawItem(it){
+  if (it.t < 5 && (S.t*8|0)%2) return;   // blink before despawning
+  const s = ITEM_SPR[it.k], x = sx(it.x), y = sy(it.y), bob = Math.round(Math.sin(S.t*4 + it.seed*6)*1.5);
+  // pulsing pixel ring on the ground so pickups read at a glance
+  const pr = 8 + ((S.t*10 + it.seed*10) % 4 | 0), n = 22;
+  lg.fillStyle = ITEM_COL[it.k];
+  for (let i=0;i<n;i++){ const a = i/n*TAU + S.t; if (i%2) continue; lg.fillRect(Math.round(x+Math.cos(a)*pr), Math.round(y+Math.sin(a)*pr*0.45), 1, 1); }
+  lg.fillStyle = 'rgba(12,6,18,.4)'; pell(lg, x, y, 5, 2);
+  lg.drawImage(s, x - (s.width>>1), y - s.height - 4 + bob);
+}
+function drawSaw(pl){
+  const d = dirOf(pl.face), f = (S.t*30|0)%2, x = sx(pl.x), y = sy(pl.y) - 12;
+  if (d===2) lg.drawImage(SAWF[f], x+1, y-4);
+  else if (d===3){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(SAWF[f], 1, y-4); lg.restore(); }
+  else if (d===0){ const v = SAWD[f]; lg.drawImage(v, x - (v.width>>1) + 3, y - 2); }
+  else { const v = SAWU[f]; lg.drawImage(v, x - (v.width>>1) + 3, y - 18); }
+}

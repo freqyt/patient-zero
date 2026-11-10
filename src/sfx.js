@@ -99,11 +99,23 @@ const SFX = (() => {
     crowd(v){ for (let i=0;i<3;i++){ const f = R(420,640); vox({f0:f, f1:f*1.3, dur:.2, vol:.07*v, formants:[[850,6,1],[1300,8,.6]], delay:i*.07, att:.02}); } },
     gameover(v){ [196,185,165,131].forEach((f,i) => voice({type:'sawtooth', f0:f, f1:f*.97, dur:.7, vol:.1*v, delay:i*.35, lp:900, lp1:300, att:.03, echo:.6}));
       voice({type:'sine', f0:55, f1:40, dur:2, vol:.2*v, delay:1.2, att:.2}); },
+    // items
+    item(v){ voice({type:'triangle', f0:880, f1:1320, dur:.18, vol:.06*v, lp:4000, echo:.6}); voice({type:'sine', f0:1760, dur:.12, vol:.03*v, delay:.08, echo:.6}); },
+    eat(v){ for (let i=0;i<3;i++) hiss({dur:.08, vol:.45*v, f0:R(1200,2200), f1:250, type:'bandpass', q:2, delay:i*.1});
+      voice({type:'sine', f0:160, f1:70, dur:.25, vol:.25*v, delay:.05}); voice({type:'triangle', f0:330, f1:520, dur:.3, vol:.06*v, delay:.3, echo:.5}); },
+    magnet(v){ voice({type:'sine', f0:180, f1:1400, dur:.55, vol:.14*v, echo:.5}); voice({type:'sawtooth', f0:90, f1:700, dur:.5, vol:.05*v, lp:1500, echo:.4});
+      hiss({dur:.5, vol:.1*v, f0:600, f1:5000, type:'bandpass', q:3, echo:.4}); },
+    saw(v){ voice({type:'sawtooth', f0:45, f1:150, dur:.45, vol:.2*v, lp:2400}); hiss({dur:.45, vol:.15*v, f0:800, f1:2500, type:'bandpass', q:2});
+      voice({type:'square', f0:30, f1:75, dur:.45, vol:.06*v, lp:900}); },
+    sawbuzz(v){ voice({type:'sawtooth', f0:R(110,128), dur:.14, vol:.1*v, lp:2600, att:.01}); hiss({dur:.14, vol:.07*v, f0:1800, type:'bandpass', q:2.5, att:.01}); },
+    nuke(v){ hiss({dur:1.6, vol:.8*v, f0:2400, f1:30, brown:true, echo:.5}); voice({type:'sine', f0:55, f1:18, dur:1.4, vol:.6*v});
+      hiss({dur:.9, vol:.25*v, f0:300, f1:4000, type:'bandpass', q:1.5, echo:.5});
+      for (let i=0;i<4;i++){ const f = R(400,700); vox({f0:f, f1:f*.5, dur:.5, vol:.06*v, formants:[[800,6,1],[1200,8,.6]], delay:.15+i*.08}); } },
     win(v){ [220,277,330,440,554].forEach((f,i) => voice({type:'sawtooth', f0:f, dur:.6, vol:.08*v, delay:i*.14, lp:2000, lp1:800, echo:.5}));
       vox({f0:110, f1:80, dur:1.2, vol:.15*v, formants:[[420,6,1],[780,7,.6]], delay:.6, vib:5, echo:.6}); },
   };
   // minimum spacing so crowds of enemies don't turn into noise
-  const GAP = {gun:.05, mg:.08, die:.09, squish:.07, bite:.06, flame:.16, pickup:.035, bone:.1, spit:.06, boom:.1, rise:.2, hurt:.14, crowd:1};
+  const GAP = {gun:.05, mg:.08, die:.09, squish:.07, bite:.06, flame:.16, pickup:.035, bone:.1, spit:.06, boom:.1, rise:.2, hurt:.14, crowd:1, sawbuzz:.12, item:.2};
   function play(name, vol=1, arg){
     if (!ac || muted || ac.state !== 'running' || !D[name]) return;
     const now = ac.currentTime;

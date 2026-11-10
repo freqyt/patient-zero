@@ -15,8 +15,8 @@ function startGame(){
   chunkCache.clear();
   S = {
     t:0, state:'play',
-    player:{x:0,y:40,r:12,hp:100,maxHp:100,biteCd:0,biteT:0,biteA:0,face:Math.PI/2,flash:0,frenzy:0,devourCd:0,moving:false},
-    humans:[], minions:[], corpses:[], pb:[], hb:[], gems:[], parts:[], pools:[], texts:[], lights:[],
+    player:{x:0,y:40,r:12,hp:100,maxHp:100,biteCd:0,biteT:0,biteA:0,face:Math.PI/2,flash:0,frenzy:0,devourCd:0,moving:false,saw:0},
+    humans:[], minions:[], corpses:[], pb:[], hb:[], gems:[], parts:[], pools:[], texts:[], lights:[], items:[], itemT:12, flashT:0,
     kills:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:{spit:1}, spawnAcc:0, shake:0,
     wt:{spit:0,spikes:1.5,screech:2,trail:0}, banner:null, crowd:null, nextCrowd:14,
     bosses:{}, maxHorde:0, wasNight:false, finalWave:false,
@@ -77,7 +77,7 @@ function nearestHuman(o, maxD){ let best = null, bd = maxD*maxD;
   for (const h of S.humans){ if (h.dead) continue; const d = d2(o,h); if (d<bd){ bd=d; best=h; } } return best; }
 function dmgHuman(h, dmg, src, quiet){
   if (h.dead) return;
-  if (h.type==='riot' && src!=='bite' && src!=='minion') dmg *= 0.5;
+  if (h.type==='riot' && src!=='bite' && src!=='minion' && src!=='saw' && src!=='bomb') dmg *= 0.5;
   h.hp -= dmg;
   if (!quiet){ h.flash = 0.07; if (Math.random()<0.5) FX.blood(h.x,h.y,2,false); }
   else h.toxic = 0.2;
@@ -87,6 +87,7 @@ function killHuman(h){
   h.dead = true; S.kills++; SFX.at('die', h.x, h.y);
   FX.blood(h.x,h.y,h.boss?30:8,false);
   S.gems.push({x:h.x, y:h.y, v:h.xp, big:h.boss || h.xp>=4});
+  if (!h.boss && S.items.length < 5){ const r = Math.random(); if (r < 0.008) spawnItem('heart', h.x, h.y); else if (r < 0.012) spawnItem('magnet', h.x, h.y); }
   if (L('hunger')) heal(0.6*L('hunger'));
   if (h.boss){ heal(60); FX.explosion(h.x,h.y,140,'fire'); FX.explosion(h.x+30,h.y-10,90,'fire'); S.shake = 16; banner('APC DESTROYED','THE ARMY IS BLEEDING'); return; }
   if (Math.random() < infectChance()) S.corpses.push({x:h.x, y:h.y, t:0.9, max:0.9, v:h.type, look:h.look});
@@ -177,6 +178,42 @@ function choose(k){
   if (S.pendingLv > 0) openLevel(); else setState('play');
 }
 
+// ---------- items ----------
+const ITEMS = {heart:{n:'FRESH HEART', w:.34}, magnet:{n:'MAGNET', w:.26}, saw:{n:'CHAINSAW', w:.22}, bomb:{n:'BIOHAZARD', w:.18}};
+function pickItemType(){
+  const p = S.player, w = {}; let sum = 0;
+  for (const k in ITEMS){ w[k] = ITEMS[k].w * (k==='heart' && p.hp/p.maxHp < 0.5 ? 2.5 : 1); sum += w[k]; }
+  let r = Math.random()*sum; for (const k in w){ r -= w[k]; if (r <= 0) return k; } return 'heart';
+}
+function spawnItem(k, x, y){
+  const p = S.player;
+  if (x === undefined){ // somewhere on screen, not right under the player
+    for (let i=0;i<12;i++){ const a = rand(0,TAU), d = rand(100,280); x = p.x + Math.cos(a)*d; y = p.y + Math.sin(a)*d*0.6;
+      if (Math.abs(x-p.x) < VW/2-30 && Math.abs(y-p.y) < VH/2-30) break; } }
+  S.items.push({k, x, y, t:30, seed:Math.random()}); SFX.at('item', x, y);
+}
+function useItem(it){
+  const p = S.player;
+  switch (it.k){
+    case 'heart': heal(30 + p.maxHp*0.2); FX.blood(p.x, p.y, 8, false); SFX.play('eat'); floatText(p.x, p.y, '+HEALTH', '#ff7a8a'); break;
+    case 'magnet': for (const g of S.gems) g.pull = true; SFX.play('magnet'); floatText(p.x, p.y, 'MAGNET!', '#ff9ccc'); break;
+    case 'saw': p.saw = 8; SFX.play('saw'); floatText(p.x, p.y, 'CHAINSAW!', '#ffb040'); break;
+    case 'bomb': biohazard(); break;
+  }
+}
+// wipes every human on screen; no brains drop and nobody rises, but brains already on the ground stay
+function biohazard(){
+  const p = S.player; let n = 0;
+  for (const h of S.humans){
+    if (h.dead || Math.abs(h.x-p.x) > VW/2+10 || Math.abs(h.y-p.y) > VH/2+10) continue;
+    if (h.boss){ dmgHuman(h, h.maxHp*0.4, 'bomb'); continue; }
+    h.dead = true; S.kills++; n++; FX.blood(h.x, h.y, 6, false); FX.corpse(h);
+  }
+  for (let i=0;i<10;i++) FX.explosion(p.x + rand(-VW/2,VW/2)*0.9, p.y + rand(-VH/2,VH/2)*0.9, rand(50,90), 'green');
+  S.hb.length = 0; S.flashT = 0.7; S.shake = 14; SFX.play('nuke');
+  banner('BIOHAZARD!', n + ' HUMANS MELTED');
+}
+
 // ---------- update ----------
 const grid = new Map();
 function separate(bodies){
@@ -259,6 +296,21 @@ function update(dt){
       for (const q of S.pools) if (d2(h,q) < (q.r*0.9)**2){ dmgHuman(h, dps*dt, 'pool', true); if (Math.random()<dt*6) FX.bubble(h.x,h.y); break; } } }
   for (const q of S.pools) q.t -= dt;
   S.pools = S.pools.filter(q=>q.t>0);
+
+  // items: random spawns on screen, pickup, chainsaw
+  S.itemT -= dt;
+  if (S.itemT <= 0){ S.itemT = rand(16,26); if (S.items.length < 4) spawnItem(pickItemType()); }
+  for (const it of S.items){ it.t -= dt; if (d2(it,p) < (p.r+12)**2){ it.got = true; useItem(it); } }
+  S.items = S.items.filter(it => !it.got && it.t > 0);
+  S.flashT = Math.max(0, S.flashT - dt);
+  if (p.saw > 0){ p.saw -= dt; SFX.play('sawbuzz', 0.7);
+    const fx = Math.cos(p.face), fy = Math.sin(p.face);
+    for (const h of S.humans){ if (h.dead) continue;
+      const dx = h.x-p.x, dy = h.y-p.y, d = Math.hypot(dx,dy); if (d > 95 + h.r) continue;
+      if (d < 42 + h.r || (dx*fx + dy*fy)/(d||1) > 0.5){
+        dmgHuman(h, 340*dt, 'saw', true); h.flash = 0.05;
+        if (Math.random() < dt*18) FX.blood(h.x, h.y, 3, false);
+        if (Math.random() < dt*12) S.parts.push({k:'spark', x:h.x, y:h.y, vx:rand(-160,160), vy:rand(-120,40), t:.2, max:.2, col:'#ffe08a'}); } } }
 
   // spawning
   const rate = Math.min(1.8 + S.t/50, 10) * (isNight ? 0.85 : 1);
@@ -377,7 +429,7 @@ function update(dt){
 
   // brains
   for (const g of S.gems){ const d = Math.sqrt(d2(g,p));
-    if (d < 80 || g.pull){ g.pull = true; const s = Math.min(d, 420*dt); g.x += (p.x-g.x)/(d||1)*s; g.y += (p.y-g.y)/(d||1)*s; }
+    if (d < 80 || g.pull){ g.pull = true; const s = Math.min(d, Math.max(420, d*3)*dt); g.x += (p.x-g.x)/(d||1)*s; g.y += (p.y-g.y)/(d||1)*s; }
     if (d < p.r+6){ g.got = true; S.xp += g.v; SFX.play('pickup', 0.8, S.combo++); S.comboT = 0.6;
       while (S.xp >= S.xpNext){ S.xp -= S.xpNext; S.level++; S.pendingLv++; S.xpNext = Math.floor(4 + Math.pow(S.level,1.3)*2.2); } } }
   S.comboT -= dt; if (S.comboT <= 0) S.combo = 0;
