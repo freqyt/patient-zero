@@ -35,8 +35,10 @@ function openShop(from){
   for (const id of ['title','over']) $(id).classList.remove('show');
   $('shop').classList.add('show'); renderShop();
 }
+// the title shows the current DNA bank; refresh it whenever a menu hands back to the title
+function refreshTitleDna(){ $('titleDna').textContent = META.dna ? `DNA BANK: ${META.dna}` : ''; }
 function closeShop(){
-  $('shop').classList.remove('show');
+  $('shop').classList.remove('show'); refreshTitleDna();
   $(shopReturn).classList.add('show');
   if (shopReturn === 'over') $('overDna').textContent = `DNA BANK: ${META.dna}`;
 }

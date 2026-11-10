@@ -740,7 +740,7 @@ $('labBtn2').onclick = () => openShop('over');
 $('shopBack').onclick = closeShop;
 $('reroll').onclick = rerollLevel;
 $('pause').onclick = () => { if (S && S.state==='pause') setState('play'); };
-$('titleDna').textContent = META.dna ? `DNA BANK: ${META.dna}` : '';
+refreshTitleDna();
 let last = performance.now();
 function frame(now){
   const dt = Math.min(0.05, (now-last)/1000); last = now;

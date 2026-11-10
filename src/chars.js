@@ -51,7 +51,7 @@ function openChars(from){
   for (const id of ['title','over','shop']) $(id).classList.remove('show');
   $('chars').classList.add('show'); renderChars();
 }
-function closeChars(){ $('chars').classList.remove('show'); $(charsReturn).classList.add('show'); }
+function closeChars(){ $('chars').classList.remove('show'); refreshTitleDna(); $(charsReturn).classList.add('show'); }
 function pickChar(id){ selChar = id; try { localStorage.setItem('pz-char', id); } catch (e) {} $('chars').classList.remove('show'); startGame(id); }
 function renderChars(){
   const el = $('charGrid'); el.innerHTML = '';
