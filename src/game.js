@@ -16,7 +16,7 @@ function startGame(){
   S = {
     t:0, state:'play',
     player:{x:0,y:40,r:12,hp:100,maxHp:100,biteCd:0,biteT:0,biteA:0,face:Math.PI/2,flash:0,frenzy:0,devourCd:0,moving:false,saw:0},
-    humans:[], minions:[], corpses:[], pb:[], hb:[], gems:[], parts:[], pools:[], texts:[], lights:[], items:[], itemT:4, flashT:0,
+    humans:[], minions:[], corpses:[], bodies:[], pb:[], hb:[], gems:[], parts:[], pools:[], texts:[], lights:[], items:[], itemT:4, flashT:0,
     kills:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:{spit:1}, spawnAcc:0, shake:0,
     wt:{spit:0,spikes:1.5,screech:2,trail:0}, banner:null, crowd:null, nextCrowd:14,
     bosses:{}, maxHorde:0, wasNight:false, finalWave:false,
@@ -135,6 +135,8 @@ function devour(){
 function hfire(h, ang, spd, dmg, opts){
   const ox = h.x+Math.cos(ang)*h.r*1.4, oy = h.y+Math.sin(ang)*h.r*1.4;
   const b = Object.assign({x:ox, y:oy, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd, spd, dmg, t:1.6, r:3}, opts||{});
+  // half-speed projectiles live twice as long, so ranges stay the same
+  b.vx *= GS; b.vy *= GS; b.spd *= GS; b.t /= GS;
   if (b.shell) b.t0 = b.t;
   S.hb.push(b);
   if (!b.fire) FX.muzzle(ox, oy, ang, b.shell);
@@ -260,7 +262,7 @@ function update(dt){
   const ml = Math.hypot(mx,my);
   p.moving = ml > 0.05;
   if (p.moving){ const k = Math.min(1, ml); mx /= ml; my /= ml;
-    const spd = 160*(1+0.1*L('legs'))*(1+0.2*nt)*(p.frenzy>0?1.4:1)*k;
+    const spd = 160*GS*(1+0.1*L('legs'))*(1+0.2*nt)*(p.frenzy>0?1.4:1)*k;
     p.x += mx*spd*dt; p.y += my*spd*dt; p.face = Math.atan2(my,mx); }
   p.frenzy -= dt; p.devourCd -= dt; p.flash -= dt; p.biteT -= dt;
   if (L('hide')) heal(0.4*L('hide')*dt);
@@ -285,12 +287,12 @@ function update(dt){
     const tg = S.humans.filter(h => visible(h) && d2(h,p) < 320*320).sort((a,b)=>d2(a,p)-d2(b,p)).slice(0,n);
     if (tg.length){ wt.spit = 1.25*(1-0.1*l); SFX.play('spit', 0.6);
       for (let i=0;i<n;i++){ const t = tg[i % tg.length], a = Math.atan2(t.y-p.y,t.x-p.x) + (i>=tg.length ? rand(-.2,.2) : 0);
-        S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*300,vy:Math.sin(a)*300,dmg:12+6*l,t:1.2,r:6,pierce:1+Math.max(0,l-2),hit:new Set(),k:'spit'}); } } } }
+        S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*300*GS,vy:Math.sin(a)*300*GS,dmg:12+6*l,t:1.2/GS,r:6,pierce:1+Math.max(0,l-2),hit:new Set(),k:'spit'}); } } } }
   l = L('spikes');
   if (l){ wt.spikes = Math.max(0, wt.spikes - dt); if (wt.spikes<=0 && anyTarget(160)){ wt.spikes = 3.2 - 0.3*l; SFX.play('bone');
     const n = 6 + 2*l, off = Math.random()*TAU;
     for (let i=0;i<n;i++){ const a = off + i/n*TAU;
-      S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*260,vy:Math.sin(a)*260,dmg:16+8*l,t:0.6,r:5,pierce:3,hit:new Set(),k:'spike'}); } } }
+      S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*260*GS,vy:Math.sin(a)*260*GS,dmg:16+8*l,t:0.6/GS,r:5,pierce:3,hit:new Set(),k:'spike'}); } } }
   l = L('screech');
   if (l){ wt.screech = Math.max(0, wt.screech - dt); if (wt.screech<=0 && anyTarget(110 + 20*l)){ wt.screech = 7.5 - 0.8*l; SFX.play('screech');
     const R = 110 + 20*l;
@@ -329,7 +331,7 @@ function update(dt){
         if (Math.random() < dt*12) S.parts.push({k:'spark', x:h.x, y:h.y, vx:rand(-160,160), vy:rand(-120,40), t:.2, max:.2, col:'#ffe08a'}); } } }
 
   // spawning
-  const rate = Math.min(1.8 + S.t/50, 10) * (isNight ? 0.85 : 1);
+  const rate = 0.75 * Math.min(1.8 + S.t/50, 10) * (isNight ? 0.85 : 1);   // trimmed to suit the slower pace
   S.spawnAcc += dt*rate;
   while (S.spawnAcc >= 1){ S.spawnAcc--; if (S.humans.length < 220) spawnHuman(pickType()); }
   if (S.t >= S.nextCrowd){ S.nextCrowd += 50; spawnCrowd(); }
@@ -341,11 +343,13 @@ function update(dt){
 
   // humans
   const viewR = Math.hypot(VW,VH)/2;
+  // humans move at half pace, creeping up to +25% faster by the end of the run
+  const hsp = GS * (1 + 0.25*Math.min(S.t, GAME_LEN)/GAME_LEN);
   for (const h of S.humans){
     if (h.dead) continue;
-    h.flash -= dt; h.cd -= dt; h.cd2 -= dt; h.cd3 -= dt;
+    h.flash -= dt; h.cd -= dt*0.75; h.cd2 -= dt*0.75; h.cd3 -= dt;
     if (h.type==='crate'){ h.kx = h.ky = 0; h.stun = 0; if (Math.abs(h.x-p.x) > VW*1.5 || Math.abs(h.y-p.y) > VH*1.8) h.dead = true; continue; }
-    h.x += h.kx*dt; h.y += h.ky*dt; h.kx *= Math.pow(0.02,dt); h.ky *= Math.pow(0.02,dt);
+    h.x += h.kx*GS*dt; h.y += h.ky*GS*dt; h.kx *= Math.pow(0.02,dt); h.ky *= Math.pow(0.02,dt);
     const pd = Math.sqrt(d2(h,p));
     if (pd > viewR*1.9 && !h.boss){
       if (h.type==='civ' && Math.random()<0.5){ h.dead = true; continue; }
@@ -400,7 +404,7 @@ function update(dt){
         if (d2(h,p) < (h.r+p.r+4)**2 && h.cd3<=0){ h.cd3 = 0.6; hurtPlayer(8); }
         break; }
     }
-    h.x += vx*sp*dt; h.y += vy*sp*dt;
+    h.x += vx*sp*hsp*dt; h.y += vy*sp*hsp*dt;
   }
 
   // corpses rising
@@ -424,7 +428,7 @@ function update(dt){
     else { const ring = 46 + (i%4)*16, a = m.slot + S.t*0.25;
       tx = p.x + Math.cos(a)*ring; ty = p.y + Math.sin(a)*ring*0.8; }
     const dx = tx-m.x, dy = ty-m.y, dl = Math.hypot(dx,dy);
-    let spd = 118*V.sp*as*(1+0.35*nt); if (d2(m,p) > 200*200) spd *= 1.6;
+    let spd = 118*GS*V.sp*as*(1+0.35*nt); if (d2(m,p) > 200*200) spd *= 1.6;
     if (dl > 4){ const s = Math.min(spd*dt, dl); m.x += dx/dl*s; m.y += dy/dl*s; m.face = Math.atan2(dy,dx); }
     if (m.target && dl < m.r + m.target.r + 5 && m.atkCd <= 0){ m.atkCd = 0.7; dmgHuman(m.target, 8*V.dmg*am*(1+0.4*nt), 'minion'); }
   });
@@ -460,6 +464,8 @@ function update(dt){
 
   for (const t of S.texts){ t.t -= dt; t.y -= 24*dt; }
   S.texts = S.texts.filter(t => t.t > 0);
+  for (const b of S.bodies) b.t -= dt;
+  S.bodies = S.bodies.filter(b => b.t > 0);
   if (S.banner){ S.banner.t -= dt; if (S.banner.t<=0) S.banner = null; }
   S.shake *= Math.pow(0.002, dt); if (S.shake < 0.3) S.shake = 0;
   updateFx(dt);

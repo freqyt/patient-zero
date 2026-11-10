@@ -118,11 +118,10 @@ const FX = {
       g.fillStyle = c1; for (const [bx,by,br] of blobs) g.fillRect(px+Math.round(bx)-1, py+Math.round(by)-1, 2, 1);
       g.fillStyle = c0; for (const [dx,dy,s] of drops) g.fillRect(px+Math.round(dx), py+Math.round(dy), s, s); });
   },
+  // bodies are short-lived entities (not painted into the ground) so the street never clogs up
   corpse(h){
-    const L = h.look, flip = Math.random()<.5;
-    paintDecal(h.x,h.y,60, g => { const px = Math.round(h.x/2), py = Math.round(h.y/2);
-      pell(g, px+rand(-3,3)|0, py-2, 9, 4, '#5a0c18');
-      const s = corpseSprite(L); g.save(); g.translate(px, py); if (flip) g.scale(-1,1); g.drawImage(s, -14, -14); g.restore(); });
+    S.bodies.push({x:h.x, y:h.y, look:h.look, flip:Math.random()<.5, t:BODY_LIFE, px:rand(-3,3)|0});
+    if (S.bodies.length > 120) S.bodies.shift();
   },
   scorch(x,y,r){
     const pts = []; for (let i=0;i<r*6;i++){ const a = rand(0,TAU), d = Math.sqrt(Math.random())*r/2; pts.push([Math.cos(a)*d, Math.sin(a)*d*0.7]); }
@@ -250,6 +249,12 @@ function render(){
     for (let i=0;i<10;i++){ const a = i/10*TAU + S.t*0.8*(i%2?1:-1), d = R*(0.3+0.6*((i*37)%10)/10);
       band(lg, BAND.toxic, px+Math.cos(a)*d, py+Math.sin(a)*d*0.7 - 4, R*0.35, 0.25); }
     lg.globalAlpha = 1; }
+  // dead bodies: stepped fade-out for a retro dissolve
+  for (const b of S.bodies){ const a = Math.ceil(clamp(b.t/1.2,0,1)*4)/4; if (a <= 0) continue;
+    lg.globalAlpha = a; const x = sx(b.x), y = sy(b.y);
+    pell(lg, x+b.px, y-2, 9, 4, '#5a0c18');
+    const s = corpseSprite(b.look); if (b.flip){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(s, -14, y-14); lg.restore(); } else lg.drawImage(s, x-14, y-14); }
+  lg.globalAlpha = 1;
   // brains
   for (const g of S.gems){ const B = g.big ? BRAIN_L : BRAIN_S, bob = Math.round(Math.sin(S.t*5 + g.x*0.05));
     lg.fillStyle = 'rgba(10,4,16,.3)'; lg.fillRect(sx(g.x)-3, sy(g.y)+1, 6, 1);

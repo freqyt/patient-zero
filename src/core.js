@@ -16,6 +16,8 @@ function shadeHex(hex, f){ // f<0 darken, f>0 lighten
 }
 
 const GAME_LEN = 600;
+const GS = 0.5;          // global movement pace: everything moves at half the original speed
+const BODY_LIFE = 3.5;   // seconds a dead body lies before it is gone (fades over the last 1.2s)
 const HT = {
   civ:    {hp:14,  sp:72, r:10, xp:1},
   beat:   {hp:22,  sp:84, r:10, xp:2},   // melee baton cop: the common police enemy
