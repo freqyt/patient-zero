@@ -16,7 +16,7 @@ function startGame(){
   S = {
     t:0, state:'play',
     player:{x:0,y:40,r:12,hp:100,maxHp:100,biteCd:0,biteT:0,biteA:0,face:Math.PI/2,flash:0,frenzy:0,devourCd:0,moving:false,saw:0},
-    humans:[], minions:[], corpses:[], pb:[], hb:[], gems:[], parts:[], pools:[], texts:[], lights:[], items:[], itemT:12, flashT:0,
+    humans:[], minions:[], corpses:[], pb:[], hb:[], gems:[], parts:[], pools:[], texts:[], lights:[], items:[], itemT:4, flashT:0,
     kills:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:{spit:1}, spawnAcc:0, shake:0,
     wt:{spit:0,spikes:1.5,screech:2,trail:0}, banner:null, crowd:null, nextCrowd:14,
     bosses:{}, maxHorde:0, wasNight:false, finalWave:false,
@@ -55,16 +55,17 @@ function spawnHuman(type, x, y){
 function pickType(){
   const t = S.t, w = {
     civ: Math.max(0.3, 1 - t/420),
-    cop: t>25 ? Math.min(0.55,(t-25)/180) : 0,
+    beat: t>12 ? Math.min(0.6,(t-12)/120) : 0,
+    cop: t>70 ? Math.min(0.16,(t-70)/450) : 0,
     riot: t>110 ? Math.min(0.28,(t-110)/400) : 0,
-    soldier: t>180 ? Math.min(0.5,(t-180)/260) : 0,
+    soldier: t>180 ? Math.min(0.32,(t-180)/320) : 0,
     flamer: t>240 ? Math.min(0.22,(t-240)/450) : 0 };
   let sum = 0; for (const k in w) sum += w[k];
   let r = Math.random()*sum; for (const k in w){ r -= w[k]; if (r<=0) return k; } return 'civ';
 }
 function spawnCrowd(){
   const [cx, cy] = edgePos(90), n = 14 + Math.floor(S.t/30);
-  for (let i=0;i<n;i++) spawnHuman(Math.random()<0.15 && S.t>60 ? 'cop' : 'civ', cx+rand(-60,60), cy+rand(-60,60));
+  for (let i=0;i<n;i++) spawnHuman(Math.random()<0.18 && S.t>40 ? 'beat' : 'civ', cx+rand(-60,60), cy+rand(-60,60));
   S.crowd = {x:cx, y:cy, t:9};
   SFX.play('crowd');
   banner('SURVIVORS SPOTTED', 'FRESH MEAT NEARBY');
@@ -77,6 +78,7 @@ function nearestHuman(o, maxD){ let best = null, bd = maxD*maxD;
   for (const h of S.humans){ if (h.dead) continue; const d = d2(o,h); if (d<bd){ bd=d; best=h; } } return best; }
 function dmgHuman(h, dmg, src, quiet){
   if (h.dead) return;
+  if (h.type==='crate'){ h.hp -= dmg; if (!quiet){ h.flash = 0.07; FX.splinter(h.x, h.y, 3); SFX.at('crack', h.x, h.y); } if (h.hp <= 0) killHuman(h); return; }
   if (h.type==='riot' && src!=='bite' && src!=='minion' && src!=='saw' && src!=='bomb') dmg *= 0.5;
   h.hp -= dmg;
   if (!quiet){ h.flash = 0.07; if (Math.random()<0.5) FX.blood(h.x,h.y,2,false); }
@@ -84,10 +86,10 @@ function dmgHuman(h, dmg, src, quiet){
   if (h.hp <= 0) killHuman(h);
 }
 function killHuman(h){
+  if (h.type==='crate'){ h.dead = true; breakCrate(h); return; }
   h.dead = true; S.kills++; SFX.at('die', h.x, h.y);
   FX.blood(h.x,h.y,h.boss?30:8,false);
   S.gems.push({x:h.x, y:h.y, v:h.xp, big:h.boss || h.xp>=4});
-  if (!h.boss && S.items.length < 5){ const r = Math.random(); if (r < 0.008) spawnItem('heart', h.x, h.y); else if (r < 0.012) spawnItem('magnet', h.x, h.y); }
   if (L('hunger')) heal(0.6*L('hunger'));
   if (h.boss){ heal(60); FX.explosion(h.x,h.y,140,'fire'); FX.explosion(h.x+30,h.y-10,90,'fire'); S.shake = 16; banner('APC DESTROYED','THE ARMY IS BLEEDING'); return; }
   if (Math.random() < infectChance()) S.corpses.push({x:h.x, y:h.y, t:0.9, max:0.9, v:h.type, look:h.look});
@@ -190,7 +192,20 @@ function spawnItem(k, x, y){
   if (x === undefined){ // somewhere on screen, not right under the player
     for (let i=0;i<12;i++){ const a = rand(0,TAU), d = rand(100,280); x = p.x + Math.cos(a)*d; y = p.y + Math.sin(a)*d*0.6;
       if (Math.abs(x-p.x) < VW/2-30 && Math.abs(y-p.y) < VH/2-30) break; } }
-  S.items.push({k, x, y, t:30, seed:Math.random()}); SFX.at('item', x, y);
+  S.items.push({k, x, y, t:30, seed:Math.random()});
+}
+// loot crates: sit on screen as targets for your attacks and horde; smash one for a random item
+function spawnCrate(){
+  const p = S.player; let x = p.x, y = p.y;
+  for (let i=0;i<12;i++){ const a = rand(0,TAU), d = rand(110,280); x = p.x + Math.cos(a)*d; y = p.y + Math.sin(a)*d*0.6;
+    if (Math.abs(x-p.x) < VW/2-30 && Math.abs(y-p.y) < VH/2-30) break; }
+  S.humans.push({type:'crate', x, y, r:12, hp:30, maxHp:30, sp:0, xp:0, flash:0, stun:0, kx:0, ky:0, cd:0, cd2:0, cd3:0, face:0, dead:false, seed:Math.random()});
+  FX.dust(x, y); SFX.at('item', x, y);
+}
+function breakCrate(h){
+  FX.splinter(h.x, h.y, 16); SFX.at('crateBreak', h.x, h.y);
+  spawnItem(pickItemType(), h.x, h.y);
+  S.items[S.items.length-1].pop = 0.4;
 }
 function useItem(it){
   const p = S.player;
@@ -206,6 +221,7 @@ function biohazard(){
   const p = S.player; let n = 0;
   for (const h of S.humans){
     if (h.dead || Math.abs(h.x-p.x) > VW/2+10 || Math.abs(h.y-p.y) > VH/2+10) continue;
+    if (h.type==='crate'){ killHuman(h); continue; }
     if (h.boss){ dmgHuman(h, h.maxHp*0.4, 'bomb'); continue; }
     h.dead = true; S.kills++; n++; FX.blood(h.x, h.y, 6, false); FX.corpse(h);
   }
@@ -299,8 +315,8 @@ function update(dt){
 
   // items: random spawns on screen, pickup, chainsaw
   S.itemT -= dt;
-  if (S.itemT <= 0){ S.itemT = rand(16,26); if (S.items.length < 4) spawnItem(pickItemType()); }
-  for (const it of S.items){ it.t -= dt; if (d2(it,p) < (p.r+12)**2){ it.got = true; useItem(it); } }
+  if (S.itemT <= 0){ S.itemT = rand(9,14); if (S.humans.filter(h => h.type==='crate').length < 3) spawnCrate(); }
+  for (const it of S.items){ it.t -= dt; if (it.pop > 0){ it.pop -= dt; continue; } if (d2(it,p) < (p.r+12)**2){ it.got = true; useItem(it); } }
   S.items = S.items.filter(it => !it.got && it.t > 0);
   S.flashT = Math.max(0, S.flashT - dt);
   if (p.saw > 0){ p.saw -= dt; SFX.play('sawbuzz', 0.7);
@@ -328,6 +344,7 @@ function update(dt){
   for (const h of S.humans){
     if (h.dead) continue;
     h.flash -= dt; h.cd -= dt; h.cd2 -= dt; h.cd3 -= dt;
+    if (h.type==='crate'){ h.kx = h.ky = 0; h.stun = 0; if (Math.abs(h.x-p.x) > VW*1.5 || Math.abs(h.y-p.y) > VH*1.8) h.dead = true; continue; }
     h.x += h.kx*dt; h.y += h.ky*dt; h.kx *= Math.pow(0.02,dt); h.ky *= Math.pow(0.02,dt);
     const pd = Math.sqrt(d2(h,p));
     if (pd > viewR*1.9 && !h.boss){
@@ -352,12 +369,17 @@ function update(dt){
         else if (zd < R*0.45){ vx = -Math.cos(ang); vy = -Math.sin(ang); }
         else { vx = Math.cos(ang+Math.PI/2*h.strafe)*0.6; vy = Math.sin(ang+Math.PI/2*h.strafe)*0.6; if (Math.random()<dt*0.4) h.strafe *= -1; }
         const spread = 0.07 + 0.18*nt;
-        if (h.type==='cop' && h.cd<=0 && zd<R){ h.cd = rand(1.3,1.8); hfire(h, ang+rand(-spread,spread), 260, 7); }
+        if (h.type==='cop' && h.cd<=0 && zd<R){ h.cd = rand(1.7,2.3); hfire(h, ang+rand(-spread,spread), 250, 6); }
         if (h.type==='soldier'){
           if (h.cd<=0 && zd<R){ h.cd = rand(2.2,2.8); h.burst = 3; h.bt = 0; }
           if (h.burst>0){ h.bt -= dt; if (h.bt<=0){ h.bt = 0.09; h.burst--; hfire(h, ang+rand(-spread,spread), 300, 6); } }
         }
         break; }
+      case 'beat':   // baton cop: rushes in and clubs whatever zombie is closest
+        h.face = ang; h.swing -= dt; vx = Math.cos(ang); vy = Math.sin(ang);
+        if (zd < h.r+z.r+6 && h.cd<=0){ h.cd = rand(0.9,1.2); h.swing = 0.15; SFX.at('baton', h.x, h.y);
+          if (z===p) hurtPlayer(6); else { hurtMinion(z, 10); z.x += Math.cos(ang)*6; z.y += Math.sin(ang)*6; } }
+        break;
       case 'riot':
         h.face = ang; vx = Math.cos(ang); vy = Math.sin(ang);
         if (zd < h.r+z.r+4 && h.cd<=0){ h.cd = 0.9;
@@ -409,13 +431,13 @@ function update(dt){
   S.minions = S.minions.filter(m => m.hp > 0);
   S.maxHorde = Math.max(S.maxHorde, S.minions.length);
 
-  p.mass = 4; for (const h of S.humans) h.mass = h.boss ? 60 : h.type==='riot' ? 2.5 : 1;
+  p.mass = 4; for (const h of S.humans) h.mass = h.boss ? 60 : h.type==='crate' ? 80 : h.type==='riot' ? 2.5 : 1;
   separate([p, ...S.minions, ...S.humans.filter(h=>!h.dead)]);
 
   // player projectiles
   for (const b of S.pb){ b.x += b.vx*dt; b.y += b.vy*dt; b.t -= dt;
     for (const h of S.humans){ if (h.dead || b.hit.has(h)) continue;
-      if (d2(b,h) < (b.r+h.r)**2){ b.hit.add(h); dmgHuman(h, b.dmg, b.k); if (b.k==='spit') FX.splash(b.x,b.y);
+      if (d2(b,h) < (b.r+h.r)**2){ b.hit.add(h); dmgHuman(h, b.dmg, b.k); if (b.k==='spit'){ FX.splash(b.x,b.y); SFX.at('splat', b.x, b.y); }
         if (--b.pierce <= 0){ b.t = 0; break; } } } }
   S.pb = S.pb.filter(b => b.t > 0);
   // human projectiles

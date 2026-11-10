@@ -86,6 +86,7 @@ let LOOKID = 0;
 function baseLook(type){
   const L = {id: ++LOOKID, type, skin: shades(pick(SKINS)), hair: shades(pick(HAIRS)), style: Math.random()*3|0,
     shirt: shades(pick(SHIRTS)), pants: shades(pick(PANTS)), shoe: '#2a2026', gear: null};
+  if (type==='beat'){ L.shirt = shades('#4a6ab8'); L.pants = shades('#1e2a50'); L.gear = 'cap'; L.weapon = 'baton'; }
   if (type==='cop'){ L.shirt = shades('#2c3e78'); L.pants = shades('#1e2a50'); L.gear = 'cap'; L.weapon = 'pistol'; L.pose = 'aim'; }
   if (type==='soldier'){ L.shirt = shades('#5a6b3a'); L.pants = shades('#4a5530'); L.gear = 'helmet'; L.weapon = 'rifle'; L.pose = 'aim'; L.vest = true; L.shoe = '#2a2418'; }
   if (type==='riot'){ L.shirt = shades('#2b3242'); L.pants = shades('#222838'); L.gear = 'riot'; L.shield = true; L.shoe = '#141418'; }
@@ -93,9 +94,9 @@ function baseLook(type){
   return L;
 }
 // fixed pools keep the sprite cache bounded
-const LOOKS = {civ:[], cop:[], soldier:[], riot:[], flamer:[]};
+const LOOKS = {civ:[], beat:[], cop:[], soldier:[], riot:[], flamer:[]};
 for (let i=0;i<16;i++) LOOKS.civ.push(baseLook('civ'));
-for (const t of ['cop','soldier','riot','flamer']) for (let i=0;i<3;i++) LOOKS[t].push(baseLook(t));
+for (const t of ['beat','cop','soldier','riot','flamer']) for (let i=0;i<3;i++) LOOKS[t].push(baseLook(t));
 const ZLOOK = new Map();
 function zombieLook(L){
   let Z = ZLOOK.get(L.id); if (Z) return Z;
@@ -251,7 +252,12 @@ function buildChar(L, dir, step, pose){
     P(X+4,12-aS,2,4,sh[1]); P(X+5,12-aS,1,4,sh[2]); P(X+4,16-aS,2,2,sk[2]);
   };
   switch (pose){
-    case 'walk': armsWalk(); break;
+    case 'walk': armsWalk();
+      if (L.weapon==='baton'){   // nightstick in the right hand
+        if (side){ P(X+aS*2,13,1,6,'#1a1a20'); P(X+aS*2,13,1,1,'#4a4a55'); }
+        else if (front){ P(X+5,15-aS,1,6,'#1a1a20'); P(X+5,15-aS,1,1,'#4a4a55'); }
+        else P(X-6,13+aS,1,5,'#1a1a20'); }
+      break;
     case 'shield': armsWalk(); if (front) P(X+5,16-aS,1,4,'#222'); break;
     case 'panic':
       if (side){ P(X-1,6,2,6,sh[1]); P(X-1,4,2,2,sk[1]); }

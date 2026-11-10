@@ -190,7 +190,7 @@ function drawChar(e, L, pose, flash, rise){
   if (d===3){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(spr, 0, 0, w, h, -hw, top, w, h); lg.restore(); }
   else lg.drawImage(spr, 0, 0, w, h, x-hw, top, w, h);
 }
-function humanPose(h){ return h.type==='civ' ? (h.panic>0 ? 'panic' : 'walk') : h.type==='riot' ? 'shield' : 'aim'; }
+function humanPose(h){ return h.type==='civ' ? (h.panic>0 ? 'panic' : 'walk') : h.type==='riot' ? 'shield' : h.type==='beat' ? 'walk' : 'aim'; }
 function drawAPC(h){
   const d = dirOf(h.face), fl = h.flash > 0;
   let s = d>=2 ? apcSide() : apcFront(d===1); if (fl) s = propSprite((d>=2?'apcSw':'apcFw'+(d===1?1:0)), () => tinted(s,'#ffffff'));
@@ -289,7 +289,7 @@ function render(){
     const f = clamp(q.t/q.max,0,1), x = sx(q.x), y = sy(q.y) - Math.round((q.z||0)/2);
     switch (q.k){
       case 'drop': lg.fillStyle = q.col; lg.fillRect(x, y, 1, 1); break;
-      case 'dirt': lg.fillStyle = '#5c4834'; lg.fillRect(x, y, 2, 2); break;
+      case 'dirt': lg.fillStyle = q.col || '#5c4834'; lg.fillRect(x, y, 2, 2); break;
       case 'casing': lg.fillStyle = '#e0b84a'; lg.fillRect(x, y, 1, 1); break;
       case 'smoke': band(lg, BAND.smoke, x, y - 8, q.r, 0.55*f); lg.globalAlpha = 1; break;
       case 'gas': band(lg, BAND.toxic, x, y - 6, q.r, 0.5*f); lg.globalAlpha = 1; break;
@@ -317,10 +317,13 @@ function drawSorted(){
       if (x < -60 || x > LW+60 || y < -10 || y > LH+80) continue;
       if (sh){ lg.fillStyle = 'rgba(12,6,18,.35)'; pell(lg, x+1, y, sh[0], sh[1]); }
       drawProp(lg, o, x, y); }
+    else if (kind===2 && o.type==='crate') drawCrate(o);
     else if (kind===2){ drawChar(o, o.look, humanPose(o), o.flash > 0);
       if (o.stun > 0 && (S.t*6|0)%2===0){ lg.fillStyle = '#ffe96b'; const a = S.t*6; lg.fillRect(sx(o.x)+Math.round(Math.cos(a)*5), sy(o.y)-29, 1, 1); lg.fillRect(sx(o.x)+Math.round(Math.cos(a+3)*5), sy(o.y)-29, 1, 1); }
       if ((o.type==='riot'||o.type==='flamer') && o.hp < o.maxHp) miniBar(sx(o.x), sy(o.y)-30, 12, o.hp/o.maxHp, '#ff4a4a'); }
     else if (kind===3) drawAPC(o);
+    if (kind===2 && o.swing > 0){ const x = sx(o.x), y = sy(o.y) - 12; lg.fillStyle = '#f0ecdc';
+      for (let i=-3;i<=3;i++){ const a = o.face + i*0.25; lg.fillRect(Math.round(x+Math.cos(a)*11), Math.round(y+Math.sin(a)*7), 1, 1); } }
     else if (kind===4){ const r = o.rise > 0 ? 1 - o.rise/0.45 : 1; drawChar(o, o.look, 'reach', o.flash > 0, r);
       if (o.hp < o.maxHp && o.rise <= 0) miniBar(sx(o.x), sy(o.y)-29, 8, o.hp/o.maxHp, '#9be03a'); }
     else if (kind===5){ const k = 1 - o.t/o.max, x = sx(o.x) + ((S.t*40|0)%2 ? Math.round(k) : 0), y = sy(o.y);
@@ -374,6 +377,7 @@ function lighting(nt){
       else if (h.boss){ for (const s of [-1,1]) cones.push({x:x + Math.round(Math.cos(h.face)*28 - Math.sin(h.face)*6*s), y:y-14 + Math.round(Math.sin(h.face)*14), a:h.face, sp:0.3, r:140}); }
     }
     for (const b of S.hb) if (b.fire) Ls.push({x:sx(b.x), y:sy(b.y)-8, r:16, spr:BAND.orange, a:0.8*b.t/0.5});
+    for (const h of S.humans) if (h.type==='crate') Ls.push({x:sx(h.x), y:sy(h.y)-10, r:20, spr:BAND.warm, a:0.6});
     for (const it of S.items) Ls.push({x:sx(it.x), y:sy(it.y)-8, r:22, spr:BAND[ITEM_BAND[it.k]], a:0.7});
     if (S.player.saw > 0) Ls.push({x:sx(S.player.x), y:sy(S.player.y)-12, r:26, spr:BAND.orange, a:0.5});
     for (const b of S.pb) if (b.k==='spit') Ls.push({x:sx(b.x), y:sy(b.y)-12, r:12, spr:BAND.toxic, a:0.7});
@@ -508,6 +512,7 @@ function drawHUD(nt){
 
   if (p.saw > 0){ win(3,46,104,12); ptext(lg, 'SAW', 7, 49, (S.t*8|0)%2 ? '#ffb040' : '#ffe0a0'); pbar(28,51,74,3,p.saw/8,'#ffd080','#e07a20'); }
   for (const it of S.items) if (it.t > 5) edgeArrow(it.x, it.y, ITEM_COL[it.k]);
+  for (const h of S.humans) if (h.type==='crate') edgeArrow(h.x, h.y, '#d8a860');
   if (S.crowd) edgeArrow(S.crowd.x, S.crowd.y, (S.t*6|0)%2 ? '#ff9ccc' : '#c84a8a');
   if (boss) edgeArrow(boss.x, boss.y, '#ff4a3a');
 
@@ -573,7 +578,7 @@ const ITEM_COL = {heart:'#ff6a7a', magnet:'#ff9ccc', saw:'#ffb040', bomb:'#9be03
 const ITEM_BAND = {heart:'red', magnet:'pink', saw:'orange', bomb:'toxic'};
 function drawItem(it){
   if (it.t < 5 && (S.t*8|0)%2) return;   // blink before despawning
-  const s = ITEM_SPR[it.k], x = sx(it.x), y = sy(it.y), bob = Math.round(Math.sin(S.t*4 + it.seed*6)*1.5);
+  const s = ITEM_SPR[it.k], x = sx(it.x), y = sy(it.y), bob = Math.round(Math.sin(S.t*4 + it.seed*6)*1.5) - (it.pop > 0 ? Math.round(Math.sin(it.pop/0.4*Math.PI)*14) : 0);
   // pulsing pixel ring on the ground so pickups read at a glance
   const pr = 8 + ((S.t*10 + it.seed*10) % 4 | 0), n = 22;
   lg.fillStyle = ITEM_COL[it.k];
@@ -588,3 +593,31 @@ function drawSaw(pl){
   else if (d===0){ const v = SAWD[f]; lg.drawImage(v, x - (v.width>>1) + 3, y - 2); }
   else { const v = SAWU[f]; lg.drawImage(v, x - (v.width>>1) + 3, y - 18); }
 }
+
+// ---------- loot crates ----------
+function crateSpr(stage){ return propCanvas(22,24,(P) => {
+  P(2,2,18,7,'#b88a50'); P(2,2,18,1,'#dcb078'); P(2,4,18,1,'#8a6436'); P(2,6,18,1,'#8a6436');      // lid planks
+  P(2,9,18,13,'#9a6e3c'); P(2,9,18,1,'#5e4020'); P(2,21,18,1,'#4e3418');                            // front face
+  P(8,10,1,11,'#7a5630'); P(14,10,1,11,'#7a5630');
+  for (let i=0;i<11;i++){ P(3+Math.round(i*1.45),10+i,2,1,'#c8a068'); P(17-Math.round(i*1.45),10+i,2,1,'#c8a068'); }  // X brace
+  for (const [x,y] of [[2,9],[18,9],[2,20],[18,20]]) P(x,y,2,2,'#8a8e96');                            // iron corners
+  P(10,12,2,4,'#ffd860'); P(10,17,2,1,'#ffd860');                                                     // stencilled "!"
+  if (stage >= 1){ P(5,11,1,3,'#3a2410'); P(6,14,1,2,'#3a2410'); P(13,3,3,1,'#3a2410'); }
+  if (stage >= 2){ P(12,13,1,4,'#3a2410'); P(13,16,2,1,'#3a2410'); P(4,5,4,1,'#3a2410'); P(16,17,1,3,'#3a2410'); P(9,19,3,1,'#3a2410'); }
+}); }
+const CRATE = [0,1,2].map(crateSpr), CRATE_W = CRATE.map(c => tinted(c, '#ffffff'));
+function drawCrate(h){
+  const stage = h.hp/h.maxHp > 0.66 ? 0 : h.hp/h.maxHp > 0.33 ? 1 : 2;
+  const s = (h.flash > 0 ? CRATE_W : CRATE)[stage], jit = h.flash > 0 ? ((S.t*60|0)%2 ? 1 : -1) : 0;
+  const x = sx(h.x) + jit, y = sy(h.y);
+  lg.drawImage(s, x - (s.width>>1), y - s.height + 3);
+  // bobbing marker so crates are easy to spot
+  const my = y - s.height - 3 + Math.round(Math.sin(S.t*5 + h.seed*6)*1.5);
+  lg.fillStyle = '#170d1c'; lg.fillRect(x-3, my-1, 7, 5);
+  lg.fillStyle = '#ffd860'; lg.fillRect(x-2, my, 5, 1); lg.fillRect(x-1, my+1, 3, 1); lg.fillRect(x, my+2, 1, 1);
+  if (h.hp < h.maxHp) miniBar(x, y - s.height - 6, 14, h.hp/h.maxHp, '#ffd860');
+}
+FX.splinter = (x, y, n) => { const cols = ['#b88a50','#9a6e3c','#dcb078','#6a4a24'];
+  for (let i=0;i<n;i++){ const a = rand(0,TAU), s = rand(40,160);
+    S.parts.push({k:'dirt', x, y, vx:Math.cos(a)*s, vy:Math.sin(a)*s*0.7, z:14, vz:rand(60,180), t:rand(.5,.9), max:.9, col:pick(cols)}); } };
+FX.dust = (x, y) => { for (let i=0;i<6;i++) S.parts.push({k:'smoke', x:x+rand(-10,10), y, vx:rand(-20,20), vy:rand(-10,0), t:.6, max:.6, r:rand(3,5), grow:6}); };

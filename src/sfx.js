@@ -59,11 +59,37 @@ const SFX = (() => {
     route(g, echo); o.start(t); lfo.start(t); o.stop(t+att+dur+0.05); lfo.stop(t+att+dur+0.05);
   }
   const R = (a,b) => a + Math.random()*(b-a);
+  // human vocal: pitch rises to a peak then falls, held (not instantly decaying) envelope,
+  // vibrato, soft clipping, three vowel formants and breathy noise on top
+  const VOWELS = {ah:[[820,5,1],[1250,7,.75],[2700,9,.35]], eh:[[560,5,1],[1850,8,.6],[2600,9,.3]], uh:[[480,4,1],[950,6,.55],[2400,9,.2]]};
+  let softClip = null;
+  function scream({f0, peak, end, dur, vol, breath, vow='ah', delay=0}){
+    const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
+    if (!softClip){ softClip = new Float32Array(512); for (let i=0;i<512;i++){ const x = i/255.5-1; softClip[i] = Math.tanh(x*2.2); } }
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(peak, t+dur*0.28); o.frequency.exponentialRampToValueAtTime(end, t+dur);
+    const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = R(6,8); lg.gain.value = f0*0.035;
+    lfo.connect(lg); lg.connect(o.frequency);
+    const sh = ac.createWaveShaper(); sh.curve = softClip;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t+0.015);
+    g.gain.setValueAtTime(vol, t+dur*0.55); g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    o.connect(sh);
+    for (const [ff, qq, gg] of VOWELS[vow]){ const bp = ac.createBiquadFilter(), fg = ac.createGain();
+      bp.type = 'bandpass'; bp.frequency.value = ff*R(.95,1.05); bp.Q.value = qq; fg.gain.value = gg*1.6; sh.connect(bp); bp.connect(fg); fg.connect(g); }
+    route(g, 0.22);
+    hiss({dur:dur*0.9, vol:breath, f0:2200, f1:1400, type:'bandpass', q:1.2, delay, att:0.015});
+    o.start(t); lfo.start(t); o.stop(t+dur+0.05); lfo.stop(t+dur+0.05);
+  }
   const D = {
     // gore & bodies
     bite(v){ hiss({dur:.06, vol:.55*v, f0:2400, f1:500, type:'bandpass', q:1.2}); hiss({dur:.1, vol:.3*v, f0:600, f1:150, delay:.02}); voice({type:'sine', f0:140, f1:60, dur:.08, vol:.25*v}); },
-    die(v){ const f = R(380,620); vox({f0:f, f1:f*R(1.3,1.6), dur:.14, vol:.22*v, formants:[[800,6,1],[1250,8,.7]], att:.01});
-      vox({f0:f*1.5, f1:f*.6, dur:.22, vol:.18*v, formants:[[750,6,1],[1150,8,.6]], delay:.14, att:.01}); },
+    // deaths vary so a crowd doesn't repeat one sample: choked grunts, short yelps, the odd full scream
+    die(v){ const r = Math.random();
+      if (r < 0.25){ const f = R(560,860); scream({f0:f, peak:f*R(1.25,1.45), end:f*.62, dur:R(.38,.55), vol:.17*v, breath:.10*v, vow:'ah'}); }
+      else if (r < 0.65){ const f = R(320,560); scream({f0:f, peak:f*1.3, end:f*.75, dur:R(.13,.2), vol:.15*v, breath:.08*v, vow: Math.random()<.5 ? 'ah' : 'eh'}); }
+      else { const f = R(105,165); scream({f0:f, peak:f*1.12, end:f*.7, dur:R(.1,.16), vol:.2*v, breath:.12*v, vow:'uh'}); hiss({dur:.06, vol:.18*v, f0:900, f1:300, type:'bandpass', q:2}); } },
+    baton(v){ hiss({dur:.05, vol:.35*v, f0:1800, f1:600, type:'bandpass', q:1.5}); voice({type:'sine', f0:150, f1:70, dur:.07, vol:.3*v}); },
+    splat(v){ hiss({dur:.12, vol:.3*v, f0:1400, f1:250, type:'lowpass', q:7}); voice({type:'sine', f0:240, f1:90, dur:.08, vol:.14*v}); },
     squish(v){ hiss({dur:.16, vol:.5*v, f0:1100, f1:180, type:'bandpass', q:2.5}); voice({type:'sine', f0:110, f1:45, dur:.14, vol:.3*v}); },
     devour(v){ for (let i=0;i<3;i++) hiss({dur:.07, vol:.5*v, f0:R(1600,2600), f1:300, type:'bandpass', q:1.5, delay:i*.11});
       hiss({dur:.35, vol:.35*v, f0:700, f1:140, type:'bandpass', q:3, delay:.3}); voice({type:'sine', f0:90, f1:50, dur:.3, vol:.3*v, delay:.3});
@@ -72,7 +98,10 @@ const SFX = (() => {
       hiss({dur:.25, vol:.2*v, f0:500, f1:120, brown:true}); },
     hurt(v){ voice({type:'sawtooth', f0:220, f1:80, dur:.18, vol:.22*v, lp:1200, lp1:300}); hiss({dur:.12, vol:.3*v, f0:1500, f1:300, type:'bandpass', q:1.5}); },
     // player powers
-    spit(v){ hiss({dur:.14, vol:.35*v, f0:1400, f1:250, type:'bandpass', q:4}); voice({type:'sine', f0:340, f1:110, dur:.1, vol:.15*v}); },
+    // throat hork, a lippy "ptoo" pop, then a wet resonant spray
+    spit(v){ hiss({dur:.07, vol:.22*v, f0:380, f1:900, type:'bandpass', q:3, brown:true});
+      voice({type:'sine', f0:R(560,680), f1:170, dur:.06, vol:.16*v, delay:.055, att:.002});
+      hiss({dur:.13, vol:.2*v, f0:2800, f1:450, type:'lowpass', q:9, delay:.06}); },
     bone(v){ hiss({dur:.05, vol:.3*v, f0:3500, f1:1500, type:'bandpass', q:3}); hiss({dur:.08, vol:.2*v, f0:1200, f1:600, type:'bandpass', q:6, delay:.03}); },
     screech(v){ vox({f0:520, f1:300, dur:.55, vol:.28*v, formants:[[1100,4,1],[2600,6,.6],[3400,8,.3]], vib:11, echo:.5, att:.03});
       hiss({dur:.4, vol:.15*v, f0:3500, f1:1200, type:'bandpass', q:1.2, echo:.3}); },
@@ -99,6 +128,9 @@ const SFX = (() => {
     crowd(v){ for (let i=0;i<3;i++){ const f = R(420,640); vox({f0:f, f1:f*1.3, dur:.2, vol:.07*v, formants:[[850,6,1],[1300,8,.6]], delay:i*.07, att:.02}); } },
     gameover(v){ [196,185,165,131].forEach((f,i) => voice({type:'sawtooth', f0:f, f1:f*.97, dur:.7, vol:.1*v, delay:i*.35, lp:900, lp1:300, att:.03, echo:.6}));
       voice({type:'sine', f0:55, f1:40, dur:2, vol:.2*v, delay:1.2, att:.2}); },
+    // crates
+    crack(v){ hiss({dur:.05, vol:.3*v, f0:1200, f1:500, type:'bandpass', q:4}); voice({type:'triangle', f0:220, f1:160, dur:.06, vol:.14*v}); },
+    crateBreak(v){ for (let i=0;i<4;i++) hiss({dur:.09, vol:.35*v, f0:R(900,1600), f1:300, type:'bandpass', q:3, delay:i*.035}); voice({type:'sine', f0:140, f1:60, dur:.15, vol:.25*v}); voice({type:'triangle', f0:660, f1:990, dur:.2, vol:.06*v, delay:.12, echo:.5}); },
     // items
     item(v){ voice({type:'triangle', f0:880, f1:1320, dur:.18, vol:.06*v, lp:4000, echo:.6}); voice({type:'sine', f0:1760, dur:.12, vol:.03*v, delay:.08, echo:.6}); },
     eat(v){ for (let i=0;i<3;i++) hiss({dur:.08, vol:.45*v, f0:R(1200,2200), f1:250, type:'bandpass', q:2, delay:i*.1});
@@ -115,7 +147,7 @@ const SFX = (() => {
       vox({f0:110, f1:80, dur:1.2, vol:.15*v, formants:[[420,6,1],[780,7,.6]], delay:.6, vib:5, echo:.6}); },
   };
   // minimum spacing so crowds of enemies don't turn into noise
-  const GAP = {gun:.05, mg:.08, die:.09, squish:.07, bite:.06, flame:.16, pickup:.035, bone:.1, spit:.06, boom:.1, rise:.2, hurt:.14, crowd:1, sawbuzz:.12, item:.2};
+  const GAP = {gun:.05, mg:.08, die:.09, squish:.07, bite:.06, flame:.16, pickup:.035, bone:.1, spit:.06, boom:.1, rise:.2, hurt:.14, crowd:1, sawbuzz:.12, item:.2, baton:.08, splat:.07, crack:.06};
   function play(name, vol=1, arg){
     if (!ac || muted || ac.state !== 'running' || !D[name]) return;
     const now = ac.currentTime;

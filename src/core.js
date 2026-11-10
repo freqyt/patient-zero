@@ -18,7 +18,8 @@ function shadeHex(hex, f){ // f<0 darken, f>0 lighten
 const GAME_LEN = 600;
 const HT = {
   civ:    {hp:14,  sp:72, r:10, xp:1},
-  cop:    {hp:28,  sp:82, r:10, xp:2},
+  beat:   {hp:22,  sp:84, r:10, xp:2},   // melee baton cop: the common police enemy
+  cop:    {hp:28,  sp:82, r:10, xp:2},   // pistol cop: rarer
   riot:   {hp:110, sp:62, r:13, xp:5},
   soldier:{hp:50,  sp:88, r:11, xp:4},
   flamer: {hp:80,  sp:66, r:12, xp:6},
@@ -27,6 +28,7 @@ const HT = {
 // minion variants: the dead keep their gear
 const VAR = {
   civ:    {hp:34,  sp:1.0, dmg:1.0, r:10},
+  beat:   {hp:36,  sp:1.15,dmg:1.1, r:10},
   cop:    {hp:36,  sp:1.25,dmg:1.0, r:10},
   riot:   {hp:110, sp:0.8, dmg:1.6, r:13},
   soldier:{hp:55,  sp:1.05,dmg:1.3, r:11},
