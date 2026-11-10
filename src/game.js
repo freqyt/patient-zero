@@ -110,6 +110,7 @@ function dmgHuman(h, dmg, src, quiet){
     if (!quiet){ h.flash = 0.07; if (h.type==='crate'){ FX.splinter(h.x, h.y, 3); SFX.at('crack', h.x, h.y); } else SFX.at('clang', h.x, h.y); }
     if (h.hp <= 0) killHuman(h); return;
   }
+  if (h.hidden > 0) return;   // the Smuggler, vanished in smoke
   if (h.elite) dmg = eliteHit(h, dmg, src);
   if (h.type==='riot' && src!=='bite' && src!=='minion' && src!=='saw' && src!=='bomb') dmg *= 0.5;
   if (h.elite==='armored') dmg *= 0.6;
@@ -125,6 +126,7 @@ function killHuman(h){
   if (h.type==='crate'){ h.dead = true; breakCrate(h); return; }
   if (h.type==='hazard'){ h.dead = true; h.prop.live = false; h.prop.gone = true; S.shake = Math.max(S.shake, 8);
     explode(h.x, h.y, h.sub==='pump' ? 105 : 80, 70 + S.t/5, 'zombie', 'fire', 'hazard'); return; }
+  if (h.V && h.V.poof){ h.dead = true; FX.smoke(h.x, h.y, 6, 1); floatText(h.x, h.y-30, 'DECOY!', '#c8b8ff'); return; }   // the Smuggler's decoys
   h.dead = true; S.kills++; stat('kills', h.lastSrc || 'other', 1); SFX.at('die', h.x, h.y);
   if (h.elite) eliteDeath(h);
   FX.blood(h.x,h.y,h.boss?30:8,false);
@@ -681,11 +683,14 @@ function update(dt){
       if (d2(b,p) < (b.r+p.r)**2){ b.cd = 0.45; hurtPlayer(b.dmg, 'fire'); continue; }
       for (const m of S.minions) if (m.hp>0 && m.rise<=0 && d2(b,m) < (b.r+m.r)**2){ b.cd = 0.45; hurtMinion(m, b.dmg*2); break; }
       continue; }
+    if (b.rocket){ const a = Math.atan2(p.y-b.y, p.x-b.x), s = Math.hypot(b.vx, b.vy); b.vx += (Math.cos(a)*s - b.vx)*dt*1.1; b.vy += (Math.sin(a)*s - b.vy)*dt*1.1;
+      if (Math.random() < 0.5) FX.smoke(b.x, b.y, 1, 0.4);
+      if (d2(b,p) < (b.r+p.r)**2){ b.t = 0; explode(b.x, b.y, 36, b.dmg, 'human', null, b.src); continue; } }
     if (b.bee){ const a = Math.atan2(p.y-b.y, p.x-b.x), s = Math.hypot(b.vx, b.vy); b.vx += (Math.cos(a)*s - b.vx)*dt*1.5; b.vy += (Math.sin(a)*s - b.vy)*dt*1.5; }
     if (d2(b,p) < (b.r+p.r)**2){ b.t = 0; if (!b.fire && !b.harpoon && deflect(b)) continue; hurtPlayer(b.dmg, b.src); if (b.harpoon && !b.owner.dead) b.owner.reel = {tg:p, t:0.7}; continue; }
     for (const m of S.minions) if (m.hp>0 && m.rise<=0 && d2(b,m) < (b.r+m.r)**2){ hurtMinion(m, b.fire ? b.dmg*3 : b.dmg); b.t = 0;
       if (b.harpoon && !b.owner.dead) b.owner.reel = {tg:m, t:0.9}; break; } }
-  updateTraps(dt, p);
+  updateTraps(dt, p); updateBossFx(dt, p);
   S.hb = S.hb.filter(b => b.t > 0);
   S.minions = S.minions.filter(m => m.hp > 0);
   S.humans = S.humans.filter(h => !h.dead);

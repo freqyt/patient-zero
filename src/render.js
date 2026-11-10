@@ -291,13 +291,14 @@ function render(){
   drawList.length = 0;
   for (const pr of props) drawList.push(pr.y, 1, pr);
   for (const h of S.humans){ trackWalk(h); if (!h.air) drawList.push(h.y, h.boss?3:2, h); }
+  for (const b of S.boxes || []) drawList.push(b.y, 1, b);   // containers dropped by the Stacker
   for (const m of S.minions){ trackWalk(m); drawList.push(m.y, 4, m); }
   for (const c of S.corpses) drawList.push(c.y-1, 5, c);
   for (const it of S.items) drawList.push(it.y, 7, it);
   trackWalk(p); drawList.push(p.y, 6, p);
   drawSorted();
-  drawContentFx();
-  for (const h of S.humans) if (h.air) drawHeli(h);   // airborne: always on top
+  drawContentFx(); drawBossAbove();
+  for (const h of S.humans) if (h.air){ if (h.V && h.V.draw) h.V.draw(h); else drawHeli(h); }   // airborne: always on top
 
   // projectiles (drawn lifted off the ground for the 2.5D read)
   for (const b of S.pb){
@@ -332,7 +333,7 @@ function render(){
   lighting(nt);
   // floating text
   for (const t of S.texts){ if (t.t < 0.15 && (S.t*30|0)%2) continue; ptext(lg, t.txt, sx(t.x), sy(t.y)-(t.crit ? 24 : 30), t.col, {align:'center', shadow: t.crit ? '#5a1a00' : '#170d1c'}); }
-  post(nt);
+  post(nt); drawBossOverlay();
   if (S.flashT > 0){ lg.globalAlpha = Math.min(1, S.flashT/0.7)*0.85; lg.fillStyle = '#d8ffb0'; lg.fillRect(0,0,LW,LH); lg.globalAlpha = 1; }
   drawHUD(nt);
   blit();
@@ -353,7 +354,7 @@ function drawSorted(){
     else if (kind===2){ const hid = o.elite === 'camo' && o.flash <= 0 && d2(o, S.player) > 120*120;   // camouflaged elites fade into the scenery
       if (hid) lg.globalAlpha = 0.22; else if (o.elite) drawEliteUnder(o);
       if (o.V && o.V.ai === 'biker') drawBike(o);
-      drawChar(o, o.look, humanPose(o), o.flash > 0); lg.globalAlpha = 1;
+      if (o.V && o.V.big) drawBigChar(o); else drawChar(o, o.look, humanPose(o), o.flash > 0); lg.globalAlpha = 1;
       if (o.stun > 0 && (S.t*6|0)%2===0){ lg.fillStyle = '#ffe96b'; const a = S.t*6; lg.fillRect(sx(o.x)+Math.round(Math.cos(a)*5), sy(o.y)-29, 1, 1); lg.fillRect(sx(o.x)+Math.round(Math.cos(a+3)*5), sy(o.y)-29, 1, 1); }
       if ((o.type==='riot'||o.type==='flamer'||(o.V && o.V.ai==='biker')) && o.hp < o.maxHp) miniBar(sx(o.x), sy(o.y)-30, 12, o.hp/o.maxHp, '#ff4a4a'); }
     else if (kind===3) drawBoss(o);
@@ -455,8 +456,14 @@ function lighting(nt){
         pell(lg, x, y, 5, 2, '#5a1a08'); lg.fillStyle = '#e85a1a'; lg.fillRect(x-3, y-4-f, 2, 4+f); lg.fillRect(x+1, y-5+f, 2, 5-f);
         lg.fillStyle = '#ffd040'; lg.fillRect(x-2, y-2-f, 1, 2); lg.fillRect(x+1, y-3+f, 1, 2); lg.globalAlpha = 1; }
       else if (b.fire){ const k = b.t/0.5; pcirc(lg, x, y-8, 1+ (1-k)*3, k>0.6?'#fff0a0':k>0.3?'#ffa030':'#d04020'); }
+      else if (b.knife){ const ux = b.vx/b.spd, uy = b.vy/b.spd; lg.fillStyle = '#d8d8e0'; for (let i=0;i<4;i++) lg.fillRect(x-Math.round(ux*i), y-12-Math.round(uy*i*0.7), 1, 1); lg.fillStyle = '#4a3020'; lg.fillRect(x-Math.round(ux*5), y-12-Math.round(uy*3.5), 1, 1); }
+      else if (b.gravel){ lg.fillStyle = '#8a7a62'; lg.fillRect(x, y-6, 2, 2); }
+      else if (b.rocket){ const ux = b.vx/b.spd, uy = b.vy/b.spd; lg.fillStyle = '#170d1c'; lg.fillRect(x-2, y-14, 5, 4); lg.fillStyle = '#c83a2a'; lg.fillRect(x-1, y-13, 3, 2);
+        lg.fillStyle = (S.t*30|0)%2 ? '#ffd040' : '#ff7a2a'; lg.fillRect(x-Math.round(ux*4), y-12-Math.round(uy*3), 2, 2); }
       else if (b.bee){ lg.fillStyle = '#170d1c'; lg.fillRect(x-1, y-13, 3, 3); lg.fillStyle = (S.t*30|0)%2 ? '#ffd040' : '#2a2018'; lg.fillRect(x, y-12, 1, 1);
         lg.fillStyle = '#ffd040'; lg.fillRect(x+2, y-10, 1, 1); lg.fillRect(x-3, y-11, 1, 1); }
+      else if (b.lasso){ lg.fillStyle = '#c8a870'; for (let i=0;i<8;i++){ const a = i/8*TAU; lg.fillRect(x+Math.round(Math.cos(a)*3), y-12+Math.round(Math.sin(a)*2), 1, 1); }
+        if (!b.owner.dead){ const ox = sx(b.owner.x), oy = sy(b.owner.y)-14, n = Math.hypot(x-ox, y-12-oy)|0; for (let i=0;i<n;i+=2) lg.fillRect(Math.round(ox+(x-ox)*i/n), Math.round(oy+(y-12-oy)*i/n), 1, 1); } }
       else if (b.harpoon){ const ux = b.vx/b.spd, uy = b.vy/b.spd; lg.fillStyle = '#c8c8d0'; for (let i=0;i<7;i++) lg.fillRect(x-Math.round(ux*i), y-12-Math.round(uy*i*0.7), 1, 1);
         if (!b.owner.dead){ lg.fillStyle = '#8a7a5a'; const ox = sx(b.owner.x), oy = sy(b.owner.y)-12, n = Math.hypot(x-ox, y-oy)|0; for (let i=0;i<n;i+=2) lg.fillRect(Math.round(ox+(x-ox)*i/n), Math.round(oy+(y-12-oy)*i/n), 1, 1); } }
       else if (!b.shell){ lg.fillStyle = '#fff2a0'; lg.fillRect(x, y-12, 2, 1); lg.fillStyle = '#c08030';
@@ -757,6 +764,7 @@ function drawMinimap(x0, y0, w, h){
 // ---------- new content visuals ----------
 // spore mines and The Cure's gas, drawn on the ground layer
 function drawGroundFx(){
+  drawBossGround();
   for (const t of S.traps || []){ const x = sx(t.x), y = sy(t.y), shut = t.shut > 0;   // bear traps: open jaws, or snapped shut
     lg.fillStyle = 'rgba(12,6,18,.35)'; lg.fillRect(x-5, y+1, 11, 1);
     if (shut){ lg.fillStyle = '#5a5a62'; lg.fillRect(x-4, y-3, 9, 3); lg.fillStyle = '#c8c8d0'; for (let i=-4;i<5;i+=2) lg.fillRect(x+i, y-4, 1, 1); }
@@ -811,11 +819,13 @@ function drawEliteUnder(o){
 }
 // bosses
 function drawBoss(h){
+  if (h.V && h.V.draw) return h.V.draw(h);
   if (h.type === 'apc') return drawAPC(h);
   if (h.type === 'swat') return drawVan(h);
   drawBigChar(h);
 }
-function drawBigChar(h){   // Juggernaut & The Cure: regular character art at 2x
+function drawBigChar(h){   // human bosses (and the Smuggler's decoys): regular character art at 2x
+  if (h.hidden > 0) return;
   const d = dirOf(h.face), step = h.moving ? [0,1,0,2][((h.walk||0)/5|0)%4] : 0;
   const spr = charSprite(h.look, d===3 ? 2 : d, step, 'aim', h.flash > 0), w = spr.width*2, hh = spr.height*2, x = sx(h.x), y = sy(h.y);
   if (d === 3){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(spr, -w/2, y-hh+4, w, hh); lg.restore(); }

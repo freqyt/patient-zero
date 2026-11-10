@@ -39,7 +39,7 @@ Object.assign(ELITE, {camo:{c:'#6aa04a', n:'CAMOUFLAGED'}, thorns:{c:'#a0d040', 
   shock:{c:'#80e0ff', n:'LIVE WIRE'}, oily:{c:'#c8a030', n:'FUEL-SOAKED'}, heavy:{c:'#9a9aa8', n:'HEAVY-SET'},
   scorch:{c:'#ff7a2a', n:'SCORCHED'}, blink:{c:'#e0c8ff', n:'MIRAGE'}});
 function maybeElite(h){
-  if (S.t < 50 || h.type === 'civ') return;
+  if (S.t < 50 || h.type === 'civ' || (h.V && h.V.noElite)) return;
   if (Math.random() > Math.min(0.1, 0.02 + S.t/600*0.08)) return;
   const set = roster().elites, a = pick(Object.keys(set)); h.elite = a; h.eliteName = set[a];
   h.hp = h.maxHp = h.maxHp*3.5; h.xp *= 5; h.r = Math.round(h.r*1.15); h.dmgMul = 1.5;
@@ -413,6 +413,7 @@ function aiMap(h, z, zd, ang, dt, p, rangeMul){
         for (let i=0;i<2;i++){ const tg = i ? z : p, tx = tg.x+rand(-25,25), ty = tg.y+rand(-18,18), a = Math.atan2(ty-h.y, tx-h.x), d = Math.hypot(tx-h.x, ty-h.y);
           hfire(h, a, 170, 20, {t:Math.min(2.8, d/170), r:7, shell:true, rad:66, drum:true, molotov:i===0}); } }
       return pd > 70 ? to : [0,0]; }
+    default: if (BOSS_AI[h.V.ai]) return BOSS_AI[h.V.ai](h, z, zd, ang, dt, p, rangeMul); break;
     case 'warlord': {   // firebomb fans, and a war cry that summons the gang and enrages everyone nearby
       h.face = pa; h.turret = pa;
       if (h.cd <= 0){ h.cd = 4.5;
