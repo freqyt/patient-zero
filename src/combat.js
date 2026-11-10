@@ -7,19 +7,23 @@ function edgePos(margin){
   if (Math.random() < hw/(hw+hh)) return [p.x + rand(-hw,hw), p.y + (Math.random()<.5 ? -hh : hh)];
   return [p.x + (Math.random()<.5 ? -hw : hw), p.y + rand(-hh,hh)];
 }
-function spawnHuman(type, x, y){
-  const T = HT[type], sc = (T.boss ? 1 + S.t/400 : 1 + S.t/300) * (1 + 0.1*curse()) * S.H.hp * endlessHp();
+// type is a base enemy (HT) or a map variant (VARIANTS in content.js); h.type is always the base AI, h.kind the variant
+function spawnHuman(type, x, y, noPack){
+  const V = VARIANTS[type] || null, base = V ? V.base : type, T = HT[base], sc = (T.boss ? 1 + S.t/400 : 1 + S.t/300) * (1 + 0.1*curse()) * S.H.hp * endlessHp();
   if (x===undefined) [x, y] = edgePos(30);
-  const h = {type, x, y, r:T.r, hp:T.hp*sc, maxHp:T.hp*sc, sp:T.sp*rand(0.9,1.1), xp:T.xp, boss:!!T.boss, air:!!T.air,
+  const hp = (V && V.hp || T.hp)*sc;
+  const h = {type:base, kind:type, V, x, y, r:V && V.r || T.r, hp, maxHp:hp, sp:(V && V.sp || T.sp)*rand(0.9,1.1), xp:V && V.xp || T.xp, boss:!!T.boss, air:!!T.air,
     cd:rand(0.5,1.5), cd2:2, cd3:0, burst:0, bt:0, flash:0, stun:0, kx:0, ky:0, face:Math.random()*TAU, wa:Math.random()*TAU,
-    strafe:Math.random()<0.5?1:-1, turret:0, dead:false, panic:0, look: T.boss ? null : pick(LOOKS[type])};
+    strafe:Math.random()<0.5?1:-1, turret:0, dead:false, panic:0, look: T.boss ? (BOSS_LOOKS[type] || null) : pick(LOOKS[type])};
   if (!T.boss) maybeElite(h);
-  S.humans.push(h); return h;
+  S.humans.push(h);
+  if (V && V.pack && !noPack) for (let i=1;i<V.pack;i++) spawnHuman(type, x+rand(-24,24), y+rand(-18,18), true);   // hounds and coyotes run in packs
+  return h;
 }
 function pickType(){ return planPick(); }   // randomized per-run threat order (content.js)
 function spawnCrowd(){
   const [cx, cy] = edgePos(90), n = 14 + Math.floor(S.t/30);
-  for (let i=0;i<n;i++) spawnHuman(Math.random()<0.18 ? crowdGuard() : 'civ', cx+rand(-60,60), cy+rand(-60,60));
+  for (let i=0;i<n;i++) spawnHuman(Math.random()<0.18 ? crowdGuard() : 'civ', cx+rand(-60,60), cy+rand(-60,60), true);
   S.crowd = {x:cx, y:cy, t:9};
   SFX.play('crowd');
   banner('SURVIVORS SPOTTED', 'FRESH MEAT NEARBY');
@@ -43,6 +47,8 @@ function dmgHuman(h, dmg, src, quiet){
     if (!quiet){ h.flash = 0.07; if (h.type==='crate'){ FX.splinter(h.x, h.y, 3); SFX.at('crack', h.x, h.y); } else SFX.at('clang', h.x, h.y); }
     if (h.hp <= 0) killHuman(h); return;
   }
+  if (h.hidden > 0) return;   // the Smuggler, vanished in smoke
+  if (h.elite) dmg = eliteHit(h, dmg, src);
   if (h.type==='riot' && src!=='bite' && src!=='minion' && src!=='saw' && src!=='bomb') dmg *= 0.5;
   if (h.elite==='armored') dmg *= 0.6;
   if (L('might') && !NOT_MINE.has(src)) dmg *= 1 + 0.12*L('might');
@@ -57,7 +63,8 @@ function killHuman(h){
   if (h.type==='crate'){ h.dead = true; breakCrate(h); return; }
   if (h.type==='hazard'){ h.dead = true; h.prop.live = false; h.prop.gone = true; S.shake = Math.max(S.shake, 8);
     explode(h.x, h.y, h.sub==='pump' ? 105 : 80, 70 + S.t/5, 'zombie', 'fire', 'hazard'); return; }
-  h.dead = true; S.kills++; stat('kills', h.lastSrc || 'other', 1); SFX.at('die', h.x, h.y); seen(h.boss ? 'b' : 'e', h.type);
+  if (h.V && h.V.poof){ h.dead = true; FX.smoke(h.x, h.y, 6, 1); floatText(h.x, h.y-30, 'DECOY!', '#c8b8ff'); return; }   // the Smuggler's decoys
+  h.dead = true; S.kills++; stat('kills', h.lastSrc || 'other', 1); SFX.at('die', h.x, h.y); seen(h.boss ? 'b' : 'e', h.kind || h.type);
   if (h.elite) eliteDeath(h);
   FX.blood(h.x,h.y,h.boss?30:8,false);
   S.gems.push({x:h.x, y:h.y, v:h.xp, big:h.boss || h.xp>=4});
@@ -67,8 +74,8 @@ function killHuman(h){
   if (h.boss){
     heal(60, 'boss'); S.shake = 16;
     for (let i=0;i<(h.type==='heli'?6:2);i++) FX.explosion(h.x+rand(-40,40), h.y+rand(-30,20), rand(80,140), 'fire');
-    if (h.type==='heli' && !S.endless){ S.winT = 2.8; banner('GUNSHIP DOWN', 'THE CITY IS YOURS'); SFX.play('nuke'); }
-    else { S.st.bossKills = (S.st.bossKills||0) + 1; banner(BOSS_NAME[h.type]+' DOWN','IT DROPPED A BOSS CHEST'); S.items.push({k:'chest', x:h.x, y:h.y, t:1e9, seed:Math.random(), pop:0.5}); }
+    if (h.type==='heli' && !S.endless){ S.winT = 2.8; banner(enemyName(h)+' DOWN', curMap().place + ' IS YOURS'); SFX.play('nuke'); }
+    else { S.st.bossKills = (S.st.bossKills||0) + 1; banner(enemyName(h)+' DOWN','IT DROPPED A BOSS CHEST'); S.items.push({k:'chest', x:h.x, y:h.y, t:1e9, seed:Math.random(), pop:0.5}); }
     return;
   }
   if (Math.random() < infectChance()) S.corpses.push({x:h.x, y:h.y, t:0.9, max:0.9, v:h.type, look:h.look});
@@ -110,7 +117,7 @@ function explode(x,y,r,dmg,side,style,src){
 }
 function hfire(h, ang, spd, dmg, opts){
   const ox = h.x+Math.cos(ang)*h.r*1.4, oy = h.y+Math.sin(ang)*h.r*1.4;
-  const b = Object.assign({x:ox, y:oy, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd, spd, dmg:dmg*(h.dmgMul||1), t:1.6, r:3, src:h.type}, opts||{});
+  const b = Object.assign({x:ox, y:oy, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd, spd, dmg:dmg*(h.dmgMul||1), t:1.6, r:3, src:h.kind || h.type}, opts||{});
   // half-speed projectiles live twice as long, so ranges stay the same
   b.vx *= GS; b.vy *= GS; b.spd *= GS; b.t /= GS;
   if (b.shell) b.t0 = b.t;
@@ -126,7 +133,7 @@ function gameOver(win){
   else {
     S.won = win;
     const dna = Math.round((META.runReward(S.kills, S.level, S.t, win) + S.bonusDna) * S.H.dna); META.award(dna, S.t, S.kills, win);
-    $('overTitle').textContent = win ? 'THE CITY HAS FALLEN' : 'YOU WERE PUT DOWN';
+    $('overTitle').textContent = win ? curMap().place + ' HAS FALLEN' : 'YOU WERE PUT DOWN';
     $('overTitle').style.color = win ? '#9be03a' : '#ff5a5a';
     $('overSub').textContent = win ? 'The gunship burns. The streets belong to the dead.' : 'Patient Zero is gone... but the infection lingers.';
     const mm = Math.floor(S.t/60), ss = String(Math.floor(S.t%60)).padStart(2,'0');

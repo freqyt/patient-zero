@@ -9,6 +9,7 @@ addEventListener('keydown', e => {
   if (optionsOpen()){ if (k==='escape') closeOptions(); return; }
   if (archiveOpen()){ if (k==='escape') closeArchive(); return; }
   if ($('saveio').classList.contains('show')){ if (k==='escape') closeSave(); return; }
+  if ($('maps').classList.contains('show')){ if (k==='escape') closeMaps(); if (k==='enter') pickMap(META.hasMap(MAP_ID) ? MAP_ID : 'city'); return; }
   if ($('chars').classList.contains('show')){ if (k==='escape') closeChars(); if (k==='enter') pickChar(selChar); return; }
   if (!S){ if (k==='enter' || k===' ') openChars('title'); return; }
   if (S.state==='play'){

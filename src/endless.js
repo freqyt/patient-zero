@@ -18,7 +18,7 @@ function updateEndless(){
   SFX.play('alarm');
   const types = S.plan.map(e => e.k);
   for (let i=0;i<10 + 3*En.wave;i++) spawnHuman(pick(types));
-  if (En.wave % 2 === 0) spawnBoss(pick(BOSS_POOL));
+  if (En.wave % 2 === 0) spawnBoss(pick(roster().bosses));
 }
 // called from gameOver when an endless run ends
 function endEndless(){

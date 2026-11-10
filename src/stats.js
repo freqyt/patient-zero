@@ -9,7 +9,7 @@ const SRC_INFO = {
 const HEAL_INFO = {hide:['Necrotic Hide','🛡️'], hunger:['Ravenous','🍖'], heart:['Fresh Hearts','🫀'], chest:['Boss Chests','🎁'],
   feast:['Feast','🩸'], regen:['Natural Regen','💚'], leech:['Blood Leech','🩸'], lash:['Blood Whip','🐙'], chitin:['Chitin (blocked)','🐚'], boss:['Boss Kills','💀'], other:['Other','❔']};
 const TAKEN_INFO = {beat:['Baton Cops','👮'], cop:['Pistol Cops','🔫'], soldier:['Soldiers','🪖'], riot:['Riot Police','🛡️'], flamer:['Flamethrowers','🔥'],
-  apc:['Armored Carrier','🚛'], heli:['Gunship','🚁'], shell:['Shells','💣'], dog:['K9 Units','🐕'], grenadier:['Grenadiers','💣'], sniper:['Snipers','🎯'], swat:['SWAT Van','🚓'], jugg:['Juggernaut','🦾'], cure:['The Cure','💉'], elite:['Volatile Elites','💥'], other:['Other','❔']};
+  apc:['Armored Carrier','🚛'], heli:['Gunship','🚁'], shell:['Shells','💣'], dog:['K9 Units','🐕'], grenadier:['Grenadiers','💣'], sniper:['Snipers','🎯'], swat:['SWAT Van','🚓'], jugg:['Juggernaut','🦾'], cure:['The Cure','💉'], elite:['Elites','💥'], trap:['Bear Traps','🪤'], fire:['Fires','🔥'], other:['Other','❔']};
 const ITEM_NAMES = {heart:'Hearts', magnet:'Magnets', saw:'Gatlings', clover:'Clovers', bomb:'Biohazards', dice:'Dice', chest:'Chests'};
 const fmtN = v => v >= 10000 ? (v/1000).toFixed(1) + 'k' : v >= 100 ? Math.round(v) + '' : v >= 10 ? v.toFixed(0) : v.toFixed(1);
 function srcLabel(k){
@@ -40,7 +40,7 @@ function statsHTML(){
     return `<div class="srow s2">${img(emojiIcon(e))}<div class="sn">${nm}${bar(v/topH, '#ff7a8a')}</div><div class="sv">${fmtN(v)}<small>HP</small></div></div>`; });
   // damage taken
   const taken = Object.entries(st.taken).filter(e => e[1] >= 1).sort((a,b) => b[1]-a[1]), topT = taken.length ? taken[0][1] : 1;
-  const tRows = taken.map(([k,v]) => { const [nm, e] = TAKEN_INFO[k] || TAKEN_INFO.other;
+  const tRows = taken.map(([k,v]) => { const [nm, e] = TAKEN_INFO[k] || (VARIANTS[k] ? [VARIANTS[k].n.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase()), HT[VARIANTS[k].base].boss ? '💀' : '⚔️'] : TAKEN_INFO.other);
     return `<div class="srow s2">${img(emojiIcon(e))}<div class="sn">${nm}${bar(v/topT, '#ff5a5a')}</div><div class="sv">${fmtN(v)}<small>HP</small></div></div>`; });
   const items = Object.entries(st.items).map(([k,v]) => `${ITEM_NAMES[k]||k} ${v}`).join(' &middot; ') || 'none';
   const evos = Object.keys(S.evo).map(k => EVOS[k].n).join(', ') || 'none';

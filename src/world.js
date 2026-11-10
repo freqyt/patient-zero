@@ -6,6 +6,21 @@
 const TILE = 16, CT = 20, CPX = TILE*CT, CH = CPX*2;   // CH = chunk size in world units
 const chunkCache = new Map(), propCache = new Map();
 const MAX_CHUNKS = 40;
+// ---------- maps: the city below is the default; src/maps.js registers the others ----------
+// A map supplies gen(cx,cy) -> {c, g, props, lamps} (null = the city), plus look & text fields.
+const MAPS = {
+  city: {n:'DOWNTOWN', d:'Streets, parks and gas stations. Streetlights hold back the night.', place:'THE CITY', gen:null,
+         day:'#dcd4cc', night:'#b8bce4'},
+};
+const MAP_ORDER = ['city'];
+let MAP_ID = 'city';
+try { const m = localStorage.getItem('pz-map'); if (m) MAP_ID = m; } catch (e) {}
+const curMap = () => MAPS[MAP_ID] || MAPS.city;
+function setMap(id){
+  if (!MAPS[id]) id = 'city';
+  if (id !== MAP_ID){ MAP_ID = id; chunkCache.clear(); propCache.clear(); }
+  try { localStorage.setItem('pz-map', id); } catch (e) {}
+}
 
 function mulberry(seed){ let a = seed>>>0; return () => { a = (a + 0x6D2B79F5)>>>0; let t = a;
   t = Math.imul(t ^ (t>>>15), t|1); t ^= t + Math.imul(t ^ (t>>>7), t|61); return ((t ^ (t>>>14))>>>0) / 4294967296; }; }
@@ -54,7 +69,7 @@ const tileOf = (arr, x, y) => arr[(seedOf(x,y,9) >>> 3) % arr.length];
 const CAR_COLS = ['#a83038','#3a5aa8','#9a9a92','#4e7a46','#c8b890','#5a5a62','#8a4a7a','#c8862a','#d8d8d0','#2f7a7a'];
 // props: k, x, y (world units, bottom-centre anchor)
 function lotProps(lx,ly){
-  const key = lx+','+ly; let P = propCache.get(key); if (P) return P; P = [];
+  const key = 'city:'+lx+','+ly; let P = propCache.get(key); if (P) return P; P = [];
   const r = mulberry(seedOf(lx,ly,7)), X = lx*CH, Y = ly*CH, type = lotType(lx,ly);
   const R = (a,b) => a + r()*(b-a), col = () => CAR_COLS[r()*CAR_COLS.length|0];
   const I = 7*32 - 16; // interior half-extent in world units
@@ -100,7 +115,8 @@ function drawProp(g, p, sx, sy){
     case 'carF': s = carFrontSprite(p.c, p.v, p.back); break;
     case 'tree': s = treeSprite(p.v); break;
     case 'lamp': s = p.broken ? LAMP_BROKEN() : LAMP_SPR(); break;
-    default: s = p.gone && SPR[p.k+'Wreck'] ? SPR[p.k+'Wreck']() : SPR[p.k] && SPR[p.k](); break;
+    case 'flood': s = p.broken ? FLOOD_BROKEN() : FLOOD_SPR(); break;
+    default: if (p.v !== undefined && SPRV[p.k]){ s = SPRV[p.k](p.v); break; } s = p.gone && SPR[p.k+'Wreck'] ? SPR[p.k+'Wreck']() : SPR[p.k] && SPR[p.k](); break;
   }
   if (!s) return;
   if (p.flip){ g.save(); g.translate(sx, 0); g.scale(-1,1); g.drawImage(s, -Math.floor(s.width/2), sy - s.height + 1); g.restore(); }
@@ -109,7 +125,8 @@ function drawProp(g, p, sx, sy){
 const PROP_SHADOW = {carS:[22,5], carF:[13,5], tree:[14,4], dumpster:[16,3], fountain:[32,6], planter:[14,3], bench:[13,2], barrel:[6,2], toxic:[6,2], crate:[8,2], sandbags:[20,3], lamp:[5,2], mailbox:[6,2], hydrant:[5,2], cone:[4,1], pump:[7,2], fuel:[6,2], kiosk:[36,4]};
 
 // ---------- chunk build ----------
-function genChunk(cx,cy){
+function genChunk(cx,cy){ const M = curMap(); return M.gen ? M.gen(cx,cy) : genCity(cx,cy); }
+function genCity(cx,cy){
   const c = mk(CPX,CPX), g = c.getContext('2d'), r = mulberry(seedOf(cx,cy,5));
   const R = (a,b) => a + r()*(b-a);
   const P = (x,y,w,h,col) => { g.fillStyle = col; g.fillRect(x,y,w,h); };

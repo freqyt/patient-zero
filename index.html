@@ -59,6 +59,8 @@
   .card .hint .evo-to{color:#ffe070;font-size:9px} .card .hint .need{color:#8a7a6a;font-size:7px}
   .card .pips{display:flex;gap:4px;justify-content:center;margin:2px 0 8px} .card .pips i{width:10px;height:6px;background:#3a2e44;display:block} .card .pips i.on{background:var(--green)}
   .card.char .portrait{width:72px;height:96px;object-fit:contain} .card.char.sel{border-color:var(--green)} .card.char.locked{opacity:.55} .card.char.locked .portrait{filter:brightness(0) opacity(.6)}
+  .card.map .preview{width:168px;height:104px;border:2px solid var(--ink)} .card.map.sel{border-color:var(--green)}
+  .card.map.locked{opacity:.6} .card.map.locked .preview{filter:grayscale(1) brightness(.45)}
   .card .ds.hz{color:#b8f060;margin-top:6px}
   .card .lv.lock{color:#c8a048;line-height:1.7} .card .mini{width:20px;height:20px;image-rendering:pixelated;vertical-align:middle;margin-left:4px}
   .card.maxed{opacity:.6} .card.poor .lv{color:#8a6a7a}
@@ -75,6 +77,8 @@
     .card{width:min(440px,92vw);display:grid;grid-template-columns:44px 1fr;column-gap:12px;align-items:center;text-align:left;padding:10px 12px 10px 10px}
     .card .ic{grid-column:1;grid-row:1 / span 5;width:44px;height:44px;margin:0}
     .card.char .portrait{width:44px;height:58px}
+    .card.map .preview{width:84px;height:52px;grid-row:1 / span 3}
+    .card.map{grid-template-columns:84px 1fr}
     .card > :not(.ic):not(.k){grid-column:2}
     .card .k{display:none}
     .card .nm{margin:0 0 4px} .card .lv{margin-bottom:4px} .card .ds{line-height:1.6} .card .hint{margin-top:6px;padding-top:5px} .card .hint .ln{justify-content:flex-start}
@@ -185,6 +189,13 @@
   <div class="row"><button id="charsBack" class="btn small">BACK</button></div>
 </div>
 
+<div id="maps" class="ov">
+  <h2>CHOOSE YOUR HUNTING GROUND</h2>
+  <div class="sub" style="margin:0 0 8px">WHERE DOES THE OUTBREAK BEGIN?</div>
+  <div id="mapGrid" class="cards"></div>
+  <div class="row"><button id="mapsBack" class="btn small">BACK</button></div>
+</div>
+
 <div id="saveio" class="ov">
   <h2>SAVE DATA</h2>
   <div class="sub" style="margin:0 0 8px">COPY YOUR CODE TO BACK UP PROGRESS OR MOVE IT TO ANOTHER DEVICE</div>
@@ -233,12 +244,14 @@
 <script src="src/music.js?v=20261110174352"></script>
 <script src="src/pixel.js?v=20261110174352"></script>
 <script src="src/world.js?v=20261110174352"></script>
+<script src="src/maps.js?v=20261110174352"></script>
 <script src="src/render.js?v=20261110174352"></script>
 <script src="src/props.js?v=20261110174352"></script>
 <script src="src/hud.js?v=20261110174352"></script>
 <script src="src/meta.js?v=20261110174352"></script>
 <script src="src/chars.js?v=20261110174352"></script>
 <script src="src/content.js?v=20261110174352"></script>
+<script src="src/bosses.js?v=20261110174352"></script>
 <script src="src/state.js?v=20261110174352"></script>
 <script src="src/combat.js?v=20261110174352"></script>
 <script src="src/levelup.js?v=20261110174352"></script>

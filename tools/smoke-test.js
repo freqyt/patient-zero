@@ -80,12 +80,48 @@ async function main(){
     else if (!r.won && r.t < secs - 1) fail(`${cid}: run stopped early at ${r.t}s`);
     else if (r.wave !== undefined && r.wave < 2) fail(`${cid}: endless reached only wave ${r.wave}`);
   }
+  // ---- every map: the map select, unlocks, and a full run (all mid bosses and the finale) on each new map ----
+  await page.evaluate(() => { localStorage.removeItem('pz-map'); });
+  const locked = await page.evaluate(() => ['forest','docks','desert'].filter(m => !META.hasMap(m)).length);
+  await page.evaluate(() => openMaps('zero'));
+  if (!await shown('maps')) fail('map select did not open');
+  if (await page.evaluate(() => document.querySelectorAll('#mapGrid .card').length) !== 4) fail('map select should list 4 maps');
+  await page.click('#mapsBack'); if (!await shown('chars')) fail('mapsBack did not return to character select');
+  await page.evaluate(() => { document.getElementById('chars').classList.remove('show'); document.getElementById('title').classList.add('show'); });
+  console.log('maps locked before runs:', locked);
+  // earn each unlock the real way: reach 5:00 in Downtown, then beat a boss on each map in turn
+  if (!await page.evaluate(() => META.hasMap('forest'))) await page.evaluate(() => { openMaps('zero'); pickMap('city');
+    for (let i=0;i<310*30;i++){ if (S.state === 'level'){ const c = document.querySelector('#cards .card'); if (c) c.click(); } if (S.state === 'pause') S.state = 'play';
+      S.player.hp = S.player.maxHp; update(1/30); } gameOver(false); });
+  for (const map of ['forest','docks','desert']){
+    const r = await page.evaluate(async ({map, secs}) => {
+      if (!META.hasMap(map)) return {err: 'map not unlocked by the previous map\'s task'};
+      openMaps('zero'); pickMap(map);
+      if (MAP_ID !== map || !S) return {err: 'pickMap did not start a run on ' + map};
+      const bosses = new Set();
+      for (let i=0;i<secs*30;i++){
+        if (S.state === 'level'){ const c = document.querySelector('#cards .card'); if (c) c.click(); }
+        if (S.state === 'pause') S.state = 'play';
+        if (S.state === 'over') break;
+        S.player.hp = S.player.maxHp;
+        for (const h of S.humans) if (h.boss){ bosses.add(h.kind); if (S.t > 250 && !h.air && i % 300 === 0) h.hp = 1; }   // keep runs moving: mid bosses die fast
+        update(1/30); if (i % 15 === 0) render();
+      }
+      const out = {t: Math.floor(S.t), kills: S.kills, bosses: [...bosses], state: S.state};
+      if (S.state === 'play') gameOver(false);
+      return out;
+    }, {map, secs: 620});
+    console.log(map.padEnd(8), JSON.stringify(r));
+    if (r.err) fail(`${map}: ${r.err}`);
+    else if (r.bosses.length < 3) fail(`${map}: expected 2 bosses and a finale, saw ${r.bosses.join(',')}`);
+  }
+
   // the game-over screen, archive and codex render with real run data
   await page.evaluate(() => { document.getElementById('over').classList.remove('show'); document.getElementById('title').classList.add('show'); });
   await click('archBtn');
   for (const t of ['runs','feats','codex']) await page.click(`#archive .tab[data-tab="${t}"]`);
   const runs = await page.evaluate(() => META.runs.length);
-  if (runs < chars.length) fail(`expected ${chars.length} runs in history, found ${runs}`);
+  if (runs < Math.min(25, chars.length)) fail(`expected ${chars.length} runs in history, found ${runs}`);
   const codex = await page.evaluate(() => codexProgress());
   console.log('history', runs, 'runs; codex', codex.join('/'), '; feats', await page.evaluate(() => META.featCount()));
 

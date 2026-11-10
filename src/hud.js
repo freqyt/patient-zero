@@ -76,7 +76,7 @@ function drawHUD(nt){
 
   const boss = S.humans.find(h => h.boss);
   if (boss){ const bw = Math.min(160, LW-24), bx = Math.round(LW/2 - bw/2), by = narrow ? 70 : 38;
-    ptext(lg, BOSS_NAME[boss.type], LW/2, by-9, '#ff8a7a', {align:'center', shadow:'#170d1c'});
+    ptext(lg, enemyName(boss), LW/2, by-9, '#ff8a7a', {align:'center', shadow:'#170d1c'});
     pbar(bx, by, bw, 3, boss.hp/boss.maxHp, '#ffa080', '#d02828'); }
 
   // mutation slots: owned icons with level pips, then empty frames up to the cap
@@ -114,7 +114,7 @@ function drawMinimap(x0, y0, w, h){
   const dot = (wx, wy, col, sz=1) => { const x = Math.round(cx + (wx-p.x)*sc), y = Math.round(cy + (wy-p.y)*sc);
     if (x <= x0+1 || x+sz > x0+w-1 || y <= y0+1 || y+sz > y0+h-1) return; lg.fillStyle = col; lg.fillRect(x, y, sz, sz); };
   lg.fillStyle = 'rgba(255,255,255,.07)'; lg.fillRect(Math.round(cx - VW*sc/2), Math.round(cy - VH*sc/2), Math.round(VW*sc), Math.round(VH*sc));
-  for (const o of S.humans){ if (o.boss || o.type==='crate') continue; dot(o.x, o.y, o.type==='hazard' ? '#ff8a3a' : '#8a4a52'); }
+  for (const o of S.humans){ if (o.boss || o.type==='crate' || o.elite==='camo') continue; dot(o.x, o.y, o.type==='hazard' ? '#ff8a3a' : '#8a4a52'); }
   for (const m of S.minions) dot(m.x, m.y, '#5a9a3a');
   for (const it of S.items) dot(it.x, it.y, ITEM_COL[it.k], it.k === 'chest' ? 3 : 2);
   for (const o of S.humans) if (o.type==='crate') dot(o.x, o.y, '#ffd860', 2);

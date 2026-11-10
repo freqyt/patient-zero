@@ -27,7 +27,7 @@ function startGame(cid){
     kills:0, bonusDna:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:Object.assign({}, CH.start), evo:{}, gotAt:Object.fromEntries(Object.keys(CH.start).map(k => [k, 0])), ch:CH, cid, luckBonus:CH.luck || 0, newChars:[],
     st:{dmg:{}, kills:{}, heal:{}, taken:{}, risen:0, lost:0, crates:0, items:{}, sawTime:0}, rerolls:3 + META.rank('reroll') + (CH.rerolls || 0), spawnAcc:0, shake:0,
     wt:{spit:0,spikes:1.5,screech:2,trail:0}, banner:null, crowd:null, nextCrowd:14,
-    plan:makeSpawnPlan(), bossPlan:shuffle(BOSS_POOL.slice()).slice(0,2), mines:[], cures:[], bosses:{}, maxHorde:0, wasNight:false, finalWave:false, winT:0, hazT:0, overtime:false,
+    plan:makeSpawnPlan(), bossPlan:shuffle(roster().bosses.slice()).slice(0,2), mines:[], traps:[], cures:[], bosses:{}, maxHorde:0, wasNight:false, finalWave:false, winT:0, hazT:0, overtime:false,
   };
   S.combo = 0; S.comboT = 0;
   S.heat = META.heatSel; S.H = HEAT(S.heat);

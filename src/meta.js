@@ -4,7 +4,7 @@ const META = (() => {
   const KEY = 'pz-meta-v1';
   // runs: recent run log (newest first); ach: feat id -> date earned; seen: codex discoveries {cat:{key:count}};
   // heat: highest Heat unlocked; life: lifetime totals
-  let data = {dna:0, up:{}, best:{t:0, kills:0, wins:0}, chars:['zero'], runs:[], ach:{}, seen:{}, heat:0, heatSel:0, winsBy:{}, life:{kills:0, runs:0, time:0}};
+  let data = {dna:0, up:{}, best:{t:0, kills:0, wins:0}, chars:['zero'], maps:['city'], runs:[], ach:{}, seen:{}, heat:0, heatSel:0, winsBy:{}, life:{kills:0, runs:0, time:0}};
   try { const s = localStorage.getItem(KEY); if (s) data = Object.assign(data, JSON.parse(s)); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
   const UPS = {
@@ -33,6 +33,9 @@ const META = (() => {
       if (!o['pz-meta-v1']) throw new Error('The save code has no progress in it.');
       const d = JSON.parse(o['pz-meta-v1']); if (typeof d.dna !== 'number') throw new Error('The save code has no progress in it.');
       for (const k in o) if (k.startsWith('pz-')) localStorage.setItem(k, o[k]); },
+    // maps open one after another; a past run that reached 5:00 already counts for Pine Hollow
+    hasMap(id){ return id === 'city' || data.maps.includes(id) || (id === 'forest' && data.best.t >= 300); },
+    unlockMap(id){ if (this.hasMap(id)) return false; data.maps.push(id); save(); return true; },
     unlockChar(id){ if (data.chars.includes(id)) return false; data.chars.push(id); save(); return true; },
     get dna(){ return data.dna; }, get best(){ return data.best; },
     buy(k){ if (rank(k) >= UPS[k].max || data.dna < cost(k)) return false; data.dna -= cost(k); data.up[k] = rank(k) + 1; save(); return true; },

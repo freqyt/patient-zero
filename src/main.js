@@ -4,6 +4,7 @@
 $('startBtn').onclick = () => openChars('title');
 $('againBtn').onclick = () => openChars('over');
 $('charsBack').onclick = closeChars;
+$('mapsBack').onclick = closeMaps;
 $('labBtn').onclick = () => openShop('title');
 $('labBtn2').onclick = () => openShop('over');
 $('shopBack').onclick = closeShop;

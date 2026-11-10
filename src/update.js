@@ -37,7 +37,9 @@ function update(dt){
   p.moving = ml > 0.05;
   if (p.moving){ const k = Math.min(1, ml); mx /= ml; my /= ml;
     const spd = 160*GS*(S.ch.spd||1)*(1+0.1*L('legs'))*(E('trail')?1.15:1)*(1+0.2*nt)*k;
-    p.x += mx*spd*dt; p.y += my*spd*dt; p.face = Math.atan2(my,mx); }
+    const sn = p.snared > 0 ? 0.15 : 1;   // a bear trap holds you briefly
+    p.x += mx*spd*sn*dt; p.y += my*spd*sn*dt; p.face = Math.atan2(my,mx); }
+  if (p.snared > 0) p.snared -= dt;
   p.flash -= dt; p.biteT -= dt;
   if (L('hide')) heal(0.4*L('hide')*dt, 'hide');
   if (S.ch.regen) heal(S.ch.regen*dt, 'regen');
@@ -110,11 +112,11 @@ function update(dt){
   while (S.spawnAcc >= 1){ S.spawnAcc--; if (S.humans.length < 220) spawnHuman(pickType()); }
   if (S.t >= S.nextCrowd){ S.nextCrowd += 50; spawnCrowd(); }
   [240, 480].forEach((bt, i) => { if (S.t >= bt && !S.bosses[bt]){ S.bosses[bt] = true; spawnBoss(S.bossPlan[i]); } });   // random bosses each run
-  if (S.t >= 540 && !S.bosses.heli){ S.bosses.heli = true; const [x,y] = edgePos(60); spawnHuman('heli', x, y);
-    banner('GUNSHIP INBOUND','DESTROY IT TO TAKE THE CITY'); SFX.play('alarm'); }
-  if (S.t >= 555 && !S.finalWave){ S.finalWave = true; for (let i=0;i<14;i++) spawnHuman(i%3 ? 'soldier' : 'riot'); }
+  if (S.t >= 540 && !S.bosses.heli){ S.bosses.heli = true; const [x,y] = edgePos(60), fk = roster().final; spawnHuman(fk, x, y);
+    if (VARIANTS[fk]) banner(...VARIANTS[fk].intro); else banner('GUNSHIP INBOUND','DESTROY IT TO TAKE ' + curMap().place); SFX.play('alarm'); }
+  if (S.t >= 555 && !S.finalWave){ S.finalWave = true; const w = roster().wave; for (let i=0;i<14;i++) spawnHuman(i%3 ? w[0] : w[1], undefined, undefined, true); }
   if (S.endless) updateEndless(dt);
-  else if (S.t >= GAME_LEN && !S.overtime && S.winT <= 0){ S.overtime = true; banner('OVERTIME','THE GUNSHIP MUST FALL'); }
+  else if (S.t >= GAME_LEN && !S.overtime && S.winT <= 0){ S.overtime = true; const f = S.humans.find(h => h.type==='heli'); banner('OVERTIME', (f ? enemyName(f) : 'THE GUNSHIP') + ' MUST FALL'); }
   if (S.crowd){ S.crowd.t -= dt; if (S.crowd.t<=0) S.crowd = null; }
 
   updateHumans(dt, p, nt);
@@ -141,9 +143,21 @@ function update(dt){
   S.pb = S.pb.filter(b => b.t > 0);
   // human projectiles
   for (const b of S.hb){ b.x += b.vx*dt; b.y += b.vy*dt; b.t -= dt;
-    if (b.shell){ if (b.t<=0) explode(b.x,b.y,b.rad||70,b.dmg,'human',null,b.src); continue; }
-    if (d2(b,p) < (b.r+p.r)**2){ b.t = 0; if (!b.fire && deflect(b)) continue; hurtPlayer(b.dmg, b.src); continue; }
-    for (const m of S.minions) if (m.hp>0 && m.rise<=0 && d2(b,m) < (b.r+m.r)**2){ hurtMinion(m, b.fire ? b.dmg*3 : b.dmg); b.t = 0; break; } }
+    if (b.shell){ if (b.t<=0){ explode(b.x,b.y,b.rad||70,b.dmg,'human',b.molotov ? 'fire' : null,b.src);
+        if (b.molotov) for (let i=0;i<5;i++){ const a = rand(0,TAU), d = rand(0,(b.rad||60)*0.55); firePatch(b.x+Math.cos(a)*d, b.y+Math.sin(a)*d*0.7, rand(2.5,4)); } }
+      continue; }
+    if (b.patch){ b.cd = (b.cd || 0) - dt; if (b.cd > 0) continue;   // burning ground: ticks, never consumed
+      if (d2(b,p) < (b.r+p.r)**2){ b.cd = 0.45; hurtPlayer(b.dmg, 'fire'); continue; }
+      for (const m of S.minions) if (m.hp>0 && m.rise<=0 && d2(b,m) < (b.r+m.r)**2){ b.cd = 0.45; hurtMinion(m, b.dmg*2); break; }
+      continue; }
+    if (b.rocket){ const a = Math.atan2(p.y-b.y, p.x-b.x), s = Math.hypot(b.vx, b.vy); b.vx += (Math.cos(a)*s - b.vx)*dt*1.1; b.vy += (Math.sin(a)*s - b.vy)*dt*1.1;
+      if (Math.random() < 0.5) FX.smoke(b.x, b.y, 1, 0.4);
+      if (d2(b,p) < (b.r+p.r)**2){ b.t = 0; explode(b.x, b.y, 36, b.dmg, 'human', null, b.src); continue; } }
+    if (b.bee){ const a = Math.atan2(p.y-b.y, p.x-b.x), s = Math.hypot(b.vx, b.vy); b.vx += (Math.cos(a)*s - b.vx)*dt*1.5; b.vy += (Math.sin(a)*s - b.vy)*dt*1.5; }
+    if (d2(b,p) < (b.r+p.r)**2){ b.t = 0; if (!b.fire && !b.harpoon && deflect(b)) continue; hurtPlayer(b.dmg, b.src); if (b.harpoon && !b.owner.dead) b.owner.reel = {tg:p, t:0.7}; continue; }
+    for (const m of S.minions) if (m.hp>0 && m.rise<=0 && d2(b,m) < (b.r+m.r)**2){ hurtMinion(m, b.fire ? b.dmg*3 : b.dmg); b.t = 0;
+      if (b.harpoon && !b.owner.dead) b.owner.reel = {tg:m, t:0.9}; break; } }
+  updateTraps(dt, p); updateBossFx(dt, p);
   S.hb = S.hb.filter(b => b.t > 0);
   S.minions = S.minions.filter(m => m.hp > 0);
   S.humans = S.humans.filter(h => !h.dead);

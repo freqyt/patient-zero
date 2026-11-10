@@ -8,6 +8,7 @@ function updateHumans(dt, p, nt){
     if (h.dead) continue;
     const fz = h.elite==='frenzied' ? 1.8 : 1; h.flash -= dt; h.cd -= dt*0.75*fz; h.cd2 -= dt*0.75*fz; h.cd3 -= dt;
     if (h.elite==='regen') h.hp = Math.min(h.maxHp, h.hp + h.maxHp*0.03*dt);
+    if (h.elite) eliteTick(h, dt, p);
     if (!isTarget(h)){ h.kx = h.ky = 0; h.stun = 0;
       if (Math.abs(h.x-p.x) > VW*1.5 || Math.abs(h.y-p.y) > VH*1.8){ h.dead = true; if (h.prop) h.prop.live = false; }
       continue; }
@@ -20,8 +21,10 @@ function updateHumans(dt, p, nt){
     if (h.stun > 0){ h.stun -= dt; continue; }
     const [z, zd] = nearestZombie(h), ang = Math.atan2(z.y-h.y, z.x-h.x);
     let vx = 0, vy = 0, sp = h.sp;
-    const rangeMul = 1 - 0.3*nt;
-    switch (h.type){
+    if (h.rage > 0){ h.rage -= dt; sp *= 1.4; }   // the Warlord's war cry
+    const rangeMul = 1 - 0.3*nt, V = h.V || {};
+    switch (V.ai ? 'map' : h.type){
+      case 'map': { const v = aiMap(h, z, zd, ang, dt, p, rangeMul); vx = v[0]; vy = v[1]; break; }
       case 'civ':
         if (zd < 190){ vx = -Math.cos(ang); vy = -Math.sin(ang); sp *= 1.1; h.face = ang+Math.PI; h.panic = 0.5; }
         else { h.wa += rand(-2,2)*dt;
@@ -29,26 +32,33 @@ function updateHumans(dt, p, nt){
           vx = Math.cos(h.wa)*0.45; vy = Math.sin(h.wa)*0.45; h.face = h.wa; h.panic -= dt; }
         break;
       case 'cop': case 'soldier': {
-        const R = (h.type==='cop' ? 190 : 230)*rangeMul; h.face = ang;
+        const R = (V.range || (h.type==='cop' ? 190 : 230))*rangeMul; h.face = ang;
         if (zd > R*0.8){ vx = Math.cos(ang); vy = Math.sin(ang); }
         else if (zd < R*0.45){ vx = -Math.cos(ang); vy = -Math.sin(ang); }
         else { vx = Math.cos(ang+Math.PI/2*h.strafe)*0.6; vy = Math.sin(ang+Math.PI/2*h.strafe)*0.6; if (Math.random()<dt*0.4) h.strafe *= -1; }
         const spread = 0.07 + 0.18*nt;
-        if (h.type==='cop' && h.cd<=0 && zd<R){ h.cd = rand(1.7,2.3); hfire(h, ang+rand(-spread,spread), 250, 6); }
+        if (h.type==='cop' && h.cd<=0 && zd<R){ h.cd = rand(1.7,2.3)*(V.cdMul || 1);
+          if (V.pellets){ for (let i=0;i<V.pellets;i++) hfire(h, ang+rand(-V.spread,V.spread), 230, V.bdmg || 6, {t:0.9}); }   // shotgun
+          else if (V.fan){ h.burst = V.fan; h.bt = 0; }   // revolver: fan the hammer
+          else hfire(h, ang+rand(-spread,spread), V.bspd || 250, V.bdmg || 6); }
+        if (h.type==='cop' && V.fan && h.burst>0){ h.bt -= dt; if (h.bt<=0){ h.bt = 0.11; h.burst--; hfire(h, ang+rand(-V.spread,V.spread), 260, 5); } }
         if (h.type==='soldier'){
-          if (h.cd<=0 && zd<R){ h.cd = rand(2.2,2.8); h.burst = 3; h.bt = 0; }
-          if (h.burst>0){ h.bt -= dt; if (h.bt<=0){ h.bt = 0.09; h.burst--; hfire(h, ang+rand(-spread,spread), 300, 6); } }
+          if (h.cd<=0 && zd<R){ h.cd = rand(2.2,2.8); h.burst = V.burst || 3; h.bt = 0; }
+          if (h.burst>0){ h.bt -= dt; if (h.bt<=0){ h.bt = 0.09; h.burst--; hfire(h, ang+rand(-spread,spread), 300, V.bdmg || 6); } }
         }
         break; }
       case 'beat':   // baton cop: rushes in and clubs whatever zombie is closest
         h.face = ang; h.swing = (h.swing||0) - dt; vx = Math.cos(ang); vy = Math.sin(ang);
-        if (zd < h.r+z.r+6 && h.cd<=0){ h.cd = rand(0.9,1.2); h.swing = 0.15; SFX.at('baton', h.x, h.y);
-          if (z===p) hurtPlayer(6*(h.dmgMul||1), 'beat'); else { hurtMinion(z, 10); z.x += Math.cos(ang)*6; z.y += Math.sin(ang)*6; } }
+        if (zd < h.r+z.r+6 && h.cd<=0){ h.cd = rand(0.9,1.2)*(V.mcd || 1); h.swing = 0.15; SFX.at('baton', h.x, h.y);
+          const md = V.mdmg || 1, kb = V.knock === undefined ? 6 : V.knock;   // negative knock = cargo hook drags the target in
+          if (z===p) hurtPlayer(6*md*(h.dmgMul||1), h.kind); else { hurtMinion(z, 10*md); z.x += Math.cos(ang)*kb; z.y += Math.sin(ang)*kb; } }
         break;
       case 'riot':
         h.face = ang; vx = Math.cos(ang); vy = Math.sin(ang);
+        if (V.bees && zd < 200){ h.beeT = (h.beeT === undefined ? rand(1,3) : h.beeT) - dt;   // beekeepers loose a slow stinging swarm
+          if (h.beeT <= 0){ h.beeT = rand(2.6,3.4); for (let i=0;i<3;i++) hfire(h, ang+rand(-.4,.4), rand(80,110), 3, {t:2.2, r:5, bee:true}); } }
         if (zd < h.r+z.r+4 && h.cd<=0){ h.cd = 0.9;
-          if (z===p) hurtPlayer(10*(h.dmgMul||1), 'riot'); else { hurtMinion(z, 14); z.x += Math.cos(ang)*12; z.y += Math.sin(ang)*12; } }
+          if (z===p) hurtPlayer(10*(h.dmgMul||1), h.kind); else { hurtMinion(z, 14); z.x += Math.cos(ang)*12; z.y += Math.sin(ang)*12; } }
         break;
       case 'flamer':
         h.face = ang;
@@ -61,7 +71,7 @@ function updateHumans(dt, p, nt){
         h.face += clamp(((pa-h.face+Math.PI*3)%TAU)-Math.PI, -dt*1.2, dt*1.2);
         vx = Math.cos(h.face); vy = Math.sin(h.face); h.turret = ang;
         if (h.cd<=0 && zd<300){ h.cd = 0.16; hfire(h, ang+rand(-.12,.12), 320, 4); }
-        if (h.cd2<=0){ h.cd2 = 3; h.recoil = 1; const pd2 = Math.sqrt(d2(h,p)); hfire(h, pa, 200, 22, {t:Math.min(2.5,pd2/200), r:7, shell:true}); }
+        if (h.cd2<=0){ h.cd2 = 3; h.recoil = 1; const pd2 = Math.sqrt(d2(h,p)); hfire(h, pa, 200, 22, {t:Math.min(2.5,pd2/200), r:7, shell:true, molotov:!!V.molotov}); }
         for (const m of S.minions) if (d2(h,m) < (h.r+m.r)**2) hurtMinion(m, 60*dt);
         if (d2(h,p) < (h.r+p.r+4)**2 && h.cd3<=0){ h.cd3 = 0.6; hurtPlayer(8, 'apc'); }
         break; }
@@ -74,9 +84,9 @@ function updateHumans(dt, p, nt){
         if (h.burst>0){ h.bt -= dt; if (h.bt<=0){ h.bt = 0.08; h.burst--; hfire(h, ang+rand(-.1,.1), 320, 5); } }
         if (h.cd2<=0){ h.cd2 = 5.5; h.recoil = 1;
           for (let i=0;i<3;i++){ const txp = p.x+rand(-70,70), typ = p.y+rand(-45,45), a = Math.atan2(typ-h.y, txp-h.x), d = Math.hypot(txp-h.x, typ-h.y);
-            hfire(h, a, 200, 18, {t:Math.min(3, d/200), r:7, shell:true}); } }
+            hfire(h, a, 200, 18, {t:Math.min(3, d/200), r:7, shell:true, molotov:!!V.firebomb}); } }
         h.drop = (h.drop === undefined ? 8 : h.drop) - dt;
-        if (h.drop <= 0){ h.drop = 14; for (let i=0;i<2;i++) spawnHuman('soldier', h.x+rand(-20,20), h.y+rand(-10,10)); }
+        if (h.drop <= 0){ h.drop = 14; const dk = V.drops || ['soldier','soldier']; for (let i=0;i<2;i++) spawnHuman(dk[i % dk.length], h.x+rand(-20,20), h.y+rand(-10,10), true); }
         break; }
     }
     h.x += vx*sp*hsp*dt; h.y += vy*sp*hsp*dt;
@@ -107,7 +117,8 @@ function updateMinions(dt, p, nt){
     const dx = tx-m.x, dy = ty-m.y, dl = Math.hypot(dx,dy);
     let spd = 118*GS*V.sp*as*(1+0.35*nt)*(HS.spd || 1); if (d2(m,p) > 200*200) spd *= 1.6;
     const holdRange = HS.ranged && m.target && dl < 95;   // the General's squad stops and throws
-    if (dl > 4 && !holdRange){ const s = Math.min(spd*dt, dl); m.x += dx/dl*s; m.y += dy/dl*s; m.face = Math.atan2(dy,dx); }
+    if (m.snared > 0) m.snared -= dt;
+    else if (dl > 4 && !holdRange){ const s = Math.min(spd*dt, dl); m.x += dx/dl*s; m.y += dy/dl*s; m.face = Math.atan2(dy,dx); }
     let md = HORDE_DMG*V.dmg*am*(1+0.4*nt); if (HS.crit && Math.random() < HS.crit + 0.03*luck()) md *= 2;
     if (HS.ranged && m.target && dl < 140 && dl > m.r + m.target.r + 5 && m.atkCd <= 0){ m.atkCd = 1.1; m.face = Math.atan2(dy,dx);
       S.pb.push({x:m.x, y:m.y, vx:dx/dl*230*GS, vy:dy/dl*230*GS, dmg:md*0.8, t:1.4/GS, r:4, pierce:1, hit:new Set(), k:'hbone'}); }

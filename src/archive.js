@@ -40,7 +40,13 @@ function checkFeats(win){
 
 // ---- codex: everything you can meet or use, revealed the first time you kill / pick / use it ----
 const ELITE_D = {armored:'Takes 40% less damage.', swift:'Moves 60% faster.', regen:'Regenerates 3% HP per second.',
-  explosive:'Explodes when it dies.', frenzied:'Attacks 80% faster.'};
+  explosive:'Explodes when it dies.', frenzied:'Attacks 80% faster.',
+  camo:'Nearly invisible until you get close. (Pine Hollow)', thorns:'Hurts whatever bites or claws it. (Pine Hollow)', pack:'Releases a pack of hounds when it dies. (Pine Hollow)',
+  shock:'Zaps everything nearby every few seconds. (The Docks)', oily:'Bursts into burning fuel when it dies. (The Docks)', heavy:'Bigger, tougher, cannot be knocked back or stunned. (The Docks)',
+  scorch:'Leaves a trail of fire behind it. (Dead End)', blink:'Teleports away when hit, taking half damage. (Dead End)'};
+// map enemies and bosses (VARIANTS in content.js / bosses.js), grouped by map for the codex
+const mapKeys = boss => ['forest','docks','desert'].flatMap(m => boss ? [...MAP_ROSTER[m].bosses, MAP_ROSTER[m].final] : MAP_ROSTER[m].tiers.flat());
+const mapOf = k => MAPS[['forest','docks','desert'].find(m => [...MAP_ROSTER[m].tiers.flat(), ...MAP_ROSTER[m].bosses, MAP_ROSTER[m].final].includes(k))].n;
 const PICKUP_D = {heart:'Heals 30 HP plus 20% of your max HP.', magnet:'Slowly pulls every brain and loose pickup to you.',
   saw:'8 seconds of rapid, piercing bone fire.', bomb:'Melts every human on screen. Bosses lose a chunk of HP.',
   dice:'+1 reroll.', clover:'+1 luck for the rest of the run.', chest:'Dropped by bosses: a free evolution or 3 mutations, full heal, +40 DNA.'};
@@ -50,9 +56,15 @@ const CODEX = [
     icon:k => emojiIcon(ENEMY_EMO[k]), name:k => k === 'civ' ? 'CIVILIANS' : THREAT_NAME[k],
     desc:k => k === 'civ' ? 'THEY RUN. THEY SCREAM. THEY RISE.' : THREAT_SUB[k],
     stat:k => `${HT[k].hp} HP &middot; ${HT[k].xp} XP &middot; RISES WITH ${VAR[k].hp} HP`},
+  {cat:'e', title:'HUMANS OF THE WILDS', keys:mapKeys(false), how:'KILL ONE TO STUDY IT',
+    icon:k => emojiIcon(ENEMY_EMO[VARIANTS[k].base]), name:k => VARIANTS[k].n, desc:k => VARIANTS[k].sub + ' (' + mapOf(k) + ')',
+    stat:k => `${VARIANTS[k].hp || HT[VARIANTS[k].base].hp} HP &middot; ${VARIANTS[k].xp || HT[VARIANTS[k].base].xp} XP${VARIANTS[k].pack ? ' &middot; PACKS OF ' + VARIANTS[k].pack : ''}`},
   {cat:'b', title:'BOSSES', keys:['apc', 'swat', 'jugg', 'cure', 'heli'], how:'DEFEAT IT TO STUDY IT',
     icon:k => emojiIcon(ENEMY_EMO[k]), name:k => BOSS_NAME[k],
     desc:k => k === 'heli' ? 'THE FINALE. DESTROY IT TO TAKE THE CITY.' : BOSS_INTRO[k][1], stat:k => `${HT[k].hp} BASE HP`},
+  {cat:'b', title:'BOSSES OF THE WILDS', keys:mapKeys(true), how:'DEFEAT IT TO STUDY IT',
+    icon:k => emojiIcon(ENEMY_EMO[VARIANTS[k].base]), name:k => VARIANTS[k].n, desc:k => VARIANTS[k].intro[1] + ' (' + mapOf(k) + ')',
+    stat:k => `${VARIANTS[k].hp || HT[VARIANTS[k].base].hp} BASE HP` + (HT[VARIANTS[k].base].air ? ' &middot; FINALE' : '')},
   {cat:'x', title:'ELITES', keys:Object.keys(ELITE), how:'SLAY ONE TO STUDY IT',
     icon:() => emojiIcon('💀'), name:k => ELITE[k].n + ' ELITE', desc:k => ELITE_D[k], stat:() => '3.5x HP &middot; 5x XP &middot; HITS 50% HARDER'},
   {cat:'m', title:'WEAPONS', keys:Object.keys(MUTS).filter(isWeapon), how:'TAKE IT IN A RUN',
