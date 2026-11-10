@@ -143,6 +143,16 @@ const SFX = (() => {
     chest(v){ hiss({dur:.35, vol:.2*v, f0:300, f1:900, type:'bandpass', q:4});   // creaky lid, then a golden swell
       [262,330,392,523,659,784].forEach((f,i) => voice({type:'triangle', f0:f, dur:.7-i*.06, vol:.07*v, delay:.25+i*.06, lp:4000, echo:.6}));
       voice({type:'sawtooth', f0:131, dur:1.2, vol:.08*v, delay:.25, lp:900, att:.05, echo:.5}); hiss({dur:1, vol:.08*v, f0:4000, f1:9000, type:'highpass', delay:.3, echo:.6}); },
+    // new enemies, mutations and items
+    lash(v){ hiss({dur:.06, vol:.35*v, f0:6000, f1:2500, type:'highpass'}); voice({type:'sine', f0:300, f1:120, dur:.08, vol:.12*v}); },
+    spore(v){ voice({type:'sine', f0:220, f1:440, dur:.08, vol:.1*v}); hiss({dur:.12, vol:.12*v, f0:1500, f1:600, type:'bandpass', q:4}); },
+    snipe(v){ hiss({dur:.2, vol:.6*v, f0:5000, f1:300, echo:.6}); voice({type:'sine', f0:160, f1:40, dur:.15, vol:.4*v}); },
+    bark(v){ const f = R(380,520); voice({type:'sawtooth', f0:f, f1:f*.6, dur:.07, vol:.09*v, lp:1400}); hiss({dur:.05, vol:.08*v, f0:1200, f1:600, type:'bandpass', q:3}); },
+    healpulse(v){ voice({type:'sine', f0:660, f1:990, dur:.18, vol:.05*v, echo:.4}); },
+    siren(v){ for (let i=0;i<2;i++){ voice({type:'triangle', f0:700, f1:1100, dur:.35, vol:.06*v, delay:i*.7, lp:3000}); voice({type:'triangle', f0:1100, f1:700, dur:.35, vol:.06*v, delay:i*.7+.35, lp:3000}); } },
+    roar(v){ voice({type:'sawtooth', f0:90, f1:60, dur:.6, vol:.18*v, lp:600, echo:.4}); hiss({dur:.5, vol:.2*v, f0:900, f1:300, brown:true}); },
+    gatling(v){ hiss({dur:.04, vol:.22*v, f0:3200, f1:900, type:'bandpass', q:1.5}); voice({type:'sine', f0:150, f1:70, dur:.04, vol:.14*v}); },
+    gatlingUp(v){ for (let i=0;i<6;i++) hiss({dur:.04, vol:.25*v, f0:2400+i*300, f1:900, type:'bandpass', q:2, delay:i*.05}); voice({type:'sawtooth', f0:80, f1:220, dur:.35, vol:.1*v, lp:1600}); },
     // items
     item(v){ voice({type:'triangle', f0:880, f1:1320, dur:.18, vol:.06*v, lp:4000, echo:.6}); voice({type:'sine', f0:1760, dur:.12, vol:.03*v, delay:.08, echo:.6}); },
     eat(v){ for (let i=0;i<3;i++) hiss({dur:.08, vol:.45*v, f0:R(1200,2200), f1:250, type:'bandpass', q:2, delay:i*.1});
@@ -160,9 +170,9 @@ const SFX = (() => {
   };
   // minimum spacing so crowds of enemies don't turn into noise
   const GAP = {gun:.075, mg:.1, die:.16, squish:.12, bite:.08, flame:.22, pickup:.04, bone:.1, spit:.07, boom:.12, rise:.25, hurt:.14, crowd:1,
-    sawbuzz:.14, item:.2, baton:.12, splat:.1, crack:.1, clang:.1};
+    sawbuzz:.14, item:.2, baton:.12, splat:.1, lash:.1, spore:.2, bark:.15, healpulse:.3, siren:1, gatling:.06, roar:.5, crack:.1, clang:.1};
   // sounds that must always play (player feedback & big moments); everything else yields when busy
-  const KEY = new Set(['levelup','lvlmax','evolve','select','click','hurt','alarm','nuke','night','dawn','gameover','win','devour','eat','magnet','saw','chest','crateBreak']);
+  const KEY = new Set(['levelup','lvlmax','gatlingUp','snipe','evolve','select','click','hurt','alarm','nuke','night','dawn','gameover','win','devour','eat','magnet','saw','chest','crateBreak']);
   const MAX_LIVE = 36, BURST = 7;          // concurrent sources, and new sounds allowed per 60ms window
   let winStart = 0, winCount = 0;
   function play(name, vol=1, arg){

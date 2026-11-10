@@ -24,7 +24,7 @@ function startGame(){
     kills:0, bonusDna:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:{spit:1}, evo:{}, gotAt:{spit:0},
     st:{dmg:{}, kills:{}, heal:{}, taken:{}, risen:0, lost:0, devours:0, crates:0, items:{}, sawTime:0}, rerolls:3 + META.rank('reroll'), spawnAcc:0, shake:0,
     wt:{spit:0,spikes:1.5,screech:2,trail:0}, banner:null, crowd:null, nextCrowd:14,
-    bosses:{}, maxHorde:0, wasNight:false, finalWave:false, winT:0, hazT:0, overtime:false,
+    plan:makeSpawnPlan(), bossPlan:shuffle(BOSS_POOL.slice()).slice(0,2), mines:[], cures:[], bosses:{}, maxHorde:0, wasNight:false, finalWave:false, winT:0, hazT:0, overtime:false,
   };
   S.combo = 0; S.comboT = 0;
   SFX.init(); MUSIC.start(); MUSIC.setMode('day');
@@ -62,22 +62,13 @@ function spawnHuman(type, x, y){
   const h = {type, x, y, r:T.r, hp:T.hp*sc, maxHp:T.hp*sc, sp:T.sp*rand(0.9,1.1), xp:T.xp, boss:!!T.boss, air:!!T.air,
     cd:rand(0.5,1.5), cd2:2, cd3:0, burst:0, bt:0, flash:0, stun:0, kx:0, ky:0, face:Math.random()*TAU, wa:Math.random()*TAU,
     strafe:Math.random()<0.5?1:-1, turret:0, dead:false, panic:0, look: T.boss ? null : pick(LOOKS[type])};
+  if (!T.boss) maybeElite(h);
   S.humans.push(h); return h;
 }
-function pickType(){
-  const t = S.t, w = {
-    civ: Math.max(0.3, 1 - t/420),
-    beat: t>12 ? Math.min(0.6,(t-12)/120) : 0,
-    cop: t>70 ? Math.min(0.16,(t-70)/450) : 0,
-    riot: t>110 ? Math.min(0.28,(t-110)/400) : 0,
-    soldier: t>180 ? Math.min(0.32,(t-180)/320) : 0,
-    flamer: t>240 ? Math.min(0.22,(t-240)/450) : 0 };
-  let sum = 0; for (const k in w) sum += w[k];
-  let r = Math.random()*sum; for (const k in w){ r -= w[k]; if (r<=0) return k; } return 'civ';
-}
+function pickType(){ return planPick(); }   // randomized per-run threat order (content.js)
 function spawnCrowd(){
   const [cx, cy] = edgePos(90), n = 14 + Math.floor(S.t/30);
-  for (let i=0;i<n;i++) spawnHuman(Math.random()<0.18 && S.t>40 ? 'beat' : 'civ', cx+rand(-60,60), cy+rand(-60,60));
+  for (let i=0;i<n;i++) spawnHuman(Math.random()<0.18 ? crowdGuard() : 'civ', cx+rand(-60,60), cy+rand(-60,60));
   S.crowd = {x:cx, y:cy, t:9};
   SFX.play('crowd');
   banner('SURVIVORS SPOTTED', 'FRESH MEAT NEARBY');
@@ -91,7 +82,7 @@ function nearestHuman(o, maxD, forMinion){ let best = null, bd = maxD*maxD;
   for (const h of S.humans){ if (h.dead || (forMinion && (h.air || h.type==='hazard'))) continue; const d = d2(o,h); if (d<bd){ bd=d; best=h; } } return best; }
 // player-sourced hits can crit for double damage, shown as a pop-up number
 function crit(h, dmg){
-  if (Math.random() < 0.12 && isTarget(h)){ dmg *= 2; floatText(h.x, h.y-10, Math.round(dmg)+'!', '#ffe060', true); }
+  if (Math.random() < 0.12 + 0.04*L('eyes') && isTarget(h)){ dmg *= 2; floatText(h.x, h.y-10, Math.round(dmg)+'!', '#ffe060', true); }
   return dmg;
 }
 function dmgHuman(h, dmg, src, quiet){
@@ -102,6 +93,7 @@ function dmgHuman(h, dmg, src, quiet){
     if (h.hp <= 0) killHuman(h); return;
   }
   if (h.type==='riot' && src!=='bite' && src!=='minion' && src!=='saw' && src!=='bomb') dmg *= 0.5;
+  if (h.elite==='armored') dmg *= 0.6;
   stat('dmg', src, Math.min(dmg, Math.max(0, h.hp))); h.lastSrc = src;
   h.hp -= dmg;
   if (!quiet){ h.flash = 0.07; if (Math.random()<0.5) FX.blood(h.x,h.y,2,false); }
@@ -113,6 +105,7 @@ function killHuman(h){
   if (h.type==='hazard'){ h.dead = true; h.prop.live = false; h.prop.gone = true; S.shake = Math.max(S.shake, 8);
     explode(h.x, h.y, h.sub==='pump' ? 105 : 80, 70 + S.t/5, 'zombie', 'fire', 'hazard'); return; }
   h.dead = true; S.kills++; stat('kills', h.lastSrc || 'other', 1); SFX.at('die', h.x, h.y);
+  if (h.elite) eliteDeath(h);
   FX.blood(h.x,h.y,h.boss?30:8,false);
   S.gems.push({x:h.x, y:h.y, v:h.xp, big:h.boss || h.xp>=4});
   if (L('hunger')) heal(0.6*L('hunger'), 'hunger');
@@ -122,7 +115,7 @@ function killHuman(h){
     heal(60, 'boss'); S.shake = 16;
     for (let i=0;i<(h.type==='heli'?6:2);i++) FX.explosion(h.x+rand(-40,40), h.y+rand(-30,20), rand(80,140), 'fire');
     if (h.type==='heli'){ S.winT = 2.8; banner('GUNSHIP DOWN', 'THE CITY IS YOURS'); SFX.play('nuke'); }
-    else { banner('APC DESTROYED','IT DROPPED A BOSS CHEST'); S.items.push({k:'chest', x:h.x, y:h.y, t:1e9, seed:Math.random(), pop:0.5}); }
+    else { banner(BOSS_NAME[h.type]+' DOWN','IT DROPPED A BOSS CHEST'); S.items.push({k:'chest', x:h.x, y:h.y, t:1e9, seed:Math.random(), pop:0.5}); }
     return;
   }
   if (Math.random() < infectChance()) S.corpses.push({x:h.x, y:h.y, t:0.9, max:0.9, v:h.type, look:h.look});
@@ -147,6 +140,7 @@ function hurtMinion(m, dmg){
 function hurtPlayer(dmg, src){
   const p = S.player; if (S.winT > 0) return;
   if (E('spikes')) dmg *= 0.65;
+  dmg *= 1 - 0.04*L('chitin');
   stat('taken', src || 'other', Math.min(dmg, Math.max(0, p.hp)));
   SFX.play('hurt'); p.hp -= dmg; p.flash = 0.1; S.shake = Math.min(8, S.shake + dmg*0.5);
   if (p.hp <= 0){ p.hp = 0; gameOver(false); }
@@ -171,7 +165,7 @@ function devour(){
 }
 function hfire(h, ang, spd, dmg, opts){
   const ox = h.x+Math.cos(ang)*h.r*1.4, oy = h.y+Math.sin(ang)*h.r*1.4;
-  const b = Object.assign({x:ox, y:oy, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd, spd, dmg, t:1.6, r:3, src:h.type}, opts||{});
+  const b = Object.assign({x:ox, y:oy, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd, spd, dmg:dmg*(h.dmgMul||1), t:1.6, r:3, src:h.type}, opts||{});
   // half-speed projectiles live twice as long, so ranges stay the same
   b.vx *= GS; b.vy *= GS; b.spd *= GS; b.t /= GS;
   if (b.shell) b.t0 = b.t;
@@ -196,13 +190,13 @@ function gameOver(win){
 const SRC_INFO = {
   bite:{n:'Bite', ic:'🦷'}, spit:{mut:'spit'}, spike:{mut:'spikes'}, screech:{mut:'screech'}, aura:{mut:'aura'}, pool:{mut:'trail'},
   minion:{n:'Your Horde', ic:'🧟'}, boom:{mut:'boom'}, bloater:{n:'Bloaters', ic:'🔥'}, hazard:{n:'Fuel Explosions', ic:'⛽'},
-  saw:{n:'Chainsaw', ic:'🪚'}, bomb:{n:'Biohazard', ic:'☣️'}, nova:{evo:'aura'}, acid:{evo:'spit'}, other:{n:'Other', ic:'❔'},
+  saw:{n:'Bone Gatling', ic:'💀'}, gat:{n:'Bone Gatling', ic:'💀'}, lash:{mut:'lash'}, spores:{mut:'spores'}, mirror:{evo:'chitin'}, elite:{n:'Elite blasts', ic:'💥'}, bomb:{n:'Biohazard', ic:'☣️'}, nova:{evo:'aura'}, acid:{evo:'spit'}, other:{n:'Other', ic:'❔'},
 };
 const HEAL_INFO = {hide:['Necrotic Hide','🛡️'], hunger:['Ravenous','🍖'], devour:['Devour','🧟'], heart:['Fresh Hearts','🫀'], chest:['Boss Chests','🎁'],
-  feast:['Feast','🩸'], boss:['Boss Kills','💀'], other:['Other','❔']};
+  feast:['Feast','🩸'], leech:['Blood Leech','🩸'], lash:['Blood Whip','🐙'], chitin:['Chitin (blocked)','🐚'], boss:['Boss Kills','💀'], other:['Other','❔']};
 const TAKEN_INFO = {beat:['Baton Cops','👮'], cop:['Pistol Cops','🔫'], soldier:['Soldiers','🪖'], riot:['Riot Police','🛡️'], flamer:['Flamethrowers','🔥'],
-  apc:['Armored Carrier','🚛'], heli:['Gunship','🚁'], shell:['Shells','💣'], other:['Other','❔']};
-const ITEM_NAMES = {heart:'Hearts', magnet:'Magnets', saw:'Chainsaws', bomb:'Biohazards', dice:'Dice', chest:'Chests'};
+  apc:['Armored Carrier','🚛'], heli:['Gunship','🚁'], shell:['Shells','💣'], dog:['K9 Units','🐕'], grenadier:['Grenadiers','💣'], sniper:['Snipers','🎯'], swat:['SWAT Van','🚓'], jugg:['Juggernaut','🦾'], cure:['The Cure','💉'], elite:['Volatile Elites','💥'], other:['Other','❔']};
+const ITEM_NAMES = {heart:'Hearts', magnet:'Magnets', saw:'Gatlings', bomb:'Biohazards', dice:'Dice', chest:'Chests'};
 const fmtN = v => v >= 10000 ? (v/1000).toFixed(1) + 'k' : v >= 100 ? Math.round(v) + '' : v >= 10 ? v.toFixed(0) : v.toFixed(1);
 function srcLabel(k){
   const I = SRC_INFO[k] || SRC_INFO.other;
@@ -213,7 +207,7 @@ function srcLabel(k){
 // seconds a source was available, for DPS
 function srcTime(k){
   const I = SRC_INFO[k] || {};
-  if (k === 'saw') return S.st.sawTime;
+  if (k === 'saw' || k === 'gat') return S.st.sawTime;
   if (I.evo) return S.t - (S.gotAt['evo:'+I.evo] ?? S.t);
   if (I.mut) return S.t - (S.gotAt[I.mut] ?? S.t);
   return S.t;
@@ -238,7 +232,7 @@ function statsHTML(){
   const evos = Object.keys(S.evo).map(k => EVOS[k].n).join(', ') || 'none';
   const misc = `<div class="sect"><div class="sh">THE OUTBREAK</div><div class="misc">
     <span>Zombies raised <b>${st.risen}</b></span><span>Horde lost <b>${st.lost}</b></span><span>Biggest horde <b>${S.maxHorde}</b></span>
-    <span>Minions devoured <b>${st.devours}</b></span><span>Crates smashed <b>${st.crates}</b></span><span>Total damage <b>${fmtN(totalD)}</b></span>
+    <span>Minions devoured <b>${st.devours}</b></span><span>Crates smashed <b>${st.crates}</b></span><span>Elites slain <b>${st.elites||0}</b></span><span>Total damage <b>${fmtN(totalD)}</b></span>
     <span class="wide">Items: <b>${items}</b></span><span class="wide">Evolutions: <b>${evos}</b></span></div></div>`;
   return section('DAMAGE DEALT', dRows, 'No damage dealt.') + section('HEALING', hRows, 'No healing.') + section('DAMAGE TAKEN', tRows, 'Untouched!') + misc;
 }
@@ -308,7 +302,7 @@ function choose(k){
 function rerollLevel(){ if (S.state==='level' && S.rerolls > 0){ S.rerolls--; SFX.play('click'); openLevel(true); } }
 
 // ---------- items & crates ----------
-const ITEMS = {heart:{n:'FRESH HEART', w:.34}, magnet:{n:'MAGNET', w:.26}, saw:{n:'CHAINSAW', w:.22}, bomb:{n:'BIOHAZARD', w:.18}, dice:{n:'REROLL DIE', w:.2}};
+const ITEMS = {heart:{n:'FRESH HEART', w:.34}, magnet:{n:'MAGNET', w:.26}, saw:{n:'BONE GATLING', w:.22}, bomb:{n:'BIOHAZARD', w:.18}, dice:{n:'REROLL DIE', w:.2}};
 function pickItemType(){
   const p = S.player, w = {}; let sum = 0;
   for (const k in ITEMS){ w[k] = ITEMS[k].w * (k==='heart' && p.hp/p.maxHp < 0.5 ? 2.5 : 1); sum += w[k]; }
@@ -337,7 +331,7 @@ function useItem(it){
   switch (it.k){
     case 'heart': heal(30 + p.maxHp*0.2, 'heart'); FX.blood(p.x, p.y, 8, false); SFX.play('eat'); floatText(p.x, p.y, '+HEALTH', '#ff7a8a'); break;
     case 'magnet': for (const g of S.gems) g.pull = true; SFX.play('magnet'); floatText(p.x, p.y, 'MAGNET!', '#ff9ccc'); break;
-    case 'saw': p.saw = 8; SFX.play('saw'); floatText(p.x, p.y, 'CHAINSAW!', '#ffb040'); break;
+    case 'saw': p.saw = 8; SFX.play('gatlingUp'); floatText(p.x, p.y, 'BONE GATLING!', '#ece4c8'); break;
     case 'bomb': biohazard(); break;
     case 'chest': openChest(); break;
     case 'dice': S.rerolls++; SFX.play('select'); floatText(p.x, p.y, '+1 REROLL', '#c8d8ff'); break;
@@ -441,12 +435,12 @@ function update(dt){
   const wt = S.wt; let l = L('spit');
   if (l){ wt.spit = Math.max(0, wt.spit - dt); if (wt.spit<=0){
     const n = 1 + Math.floor(l/2) + (E('spit') ? 2 : 0);
-    const tg = S.humans.filter(h => visible(h) && worth(h) && d2(h,p) < 320*320).sort((a,b)=>d2(a,p)-d2(b,p)).slice(0,n);
+    const tg = S.humans.filter(h => visible(h) && worth(h) && d2(h,p) < (320*(1+0.12*L('eyes')))**2).sort((a,b)=>d2(a,p)-d2(b,p)).slice(0,n);
     if (tg.length){ wt.spit = 1.25*(1-0.1*l); SFX.play('spit', 0.6);
       for (let i=0;i<n;i++){ const t = tg[i % tg.length], a = Math.atan2(t.y-p.y,t.x-p.x) + (i>=tg.length ? rand(-.2,.2) : 0);
         S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*300*GS,vy:Math.sin(a)*300*GS,dmg:12+6*l,t:1.2/GS,r:6,pierce:1+Math.max(0,l-2)+(E('spit')?2:0),hit:new Set(),k:'spit'}); } } } }
   l = L('spikes');
-  if (l){ wt.spikes = Math.max(0, wt.spikes - dt); if (wt.spikes<=0 && anyTarget(160)){ wt.spikes = (3.2 - 0.3*l)*(E('spikes') ? 0.5 : 1); SFX.play('bone');
+  if (l){ wt.spikes = Math.max(0, wt.spikes - dt); if (wt.spikes<=0 && anyTarget(160*(1+0.12*L('eyes')))){ wt.spikes = (3.2 - 0.3*l)*(E('spikes') ? 0.5 : 1); SFX.play('bone');
     const n = 6 + 2*l, off = Math.random()*TAU;
     for (let i=0;i<n;i++){ const a = off + i/n*TAU;
       S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*260*GS,vy:Math.sin(a)*260*GS,dmg:16+8*l,t:0.6/GS,r:5,pierce:3,hit:new Set(),k:'spike'}); } } }
@@ -479,21 +473,14 @@ function update(dt){
   S.items = S.items.filter(it => !it.got && it.t > 0);
   S.hazT -= dt; if (S.hazT <= 0){ S.hazT = 0.3; promoteHazards(); }
   S.flashT = Math.max(0, S.flashT - dt);
-  if (p.saw > 0){ p.saw -= dt; S.st.sawTime += dt; SFX.play('sawbuzz', 0.7);
-    const fx = Math.cos(p.face), fy = Math.sin(p.face);
-    for (const h of S.humans){ if (h.dead || h.air) continue;
-      const dx = h.x-p.x, dy = h.y-p.y, d = Math.hypot(dx,dy); if (d > 95 + h.r) continue;
-      if (d < 42 + h.r || (dx*fx + dy*fy)/(d||1) > 0.5){
-        dmgHuman(h, 340*dt, 'saw', true); h.flash = 0.05;
-        if (isTarget(h) && Math.random() < dt*18) FX.blood(h.x, h.y, 3, false);
-        if (Math.random() < dt*12) S.parts.push({k:'spark', x:h.x, y:h.y, vx:rand(-160,160), vy:rand(-120,40), t:.2, max:.2, col:'#ffe08a'}); } } }
+  updateContent(dt, p);   // new mutations, spore mines, cure gas, threat banners, Bone Gatling (content.js)
 
   // spawning & bosses
   const rate = 0.75 * Math.min(1.8 + S.t/50, 10) * (isNight ? 0.85 : 1);
   S.spawnAcc += dt*rate;
   while (S.spawnAcc >= 1){ S.spawnAcc--; if (S.humans.length < 220) spawnHuman(pickType()); }
   if (S.t >= S.nextCrowd){ S.nextCrowd += 50; spawnCrowd(); }
-  for (const bt of [240, 480]) if (S.t >= bt && !S.bosses[bt]){ S.bosses[bt] = true; spawnHuman('apc'); banner('ARMORED CARRIER','IT CRUSHES THE DEAD'); SFX.play('alarm'); }
+  [240, 480].forEach((bt, i) => { if (S.t >= bt && !S.bosses[bt]){ S.bosses[bt] = true; spawnBoss(S.bossPlan[i]); } });   // random bosses each run
   if (S.t >= 540 && !S.bosses.heli){ S.bosses.heli = true; const [x,y] = edgePos(60); spawnHuman('heli', x, y);
     banner('GUNSHIP INBOUND','DESTROY IT TO TAKE THE CITY'); SFX.play('alarm'); }
   if (S.t >= 555 && !S.finalWave){ S.finalWave = true; for (let i=0;i<14;i++) spawnHuman(i%3 ? 'soldier' : 'riot'); }
@@ -506,7 +493,8 @@ function update(dt){
   const hsp = GS * (1 + 0.25*Math.min(S.t, GAME_LEN)/GAME_LEN);
   for (const h of S.humans){
     if (h.dead) continue;
-    h.flash -= dt; h.cd -= dt*0.75; h.cd2 -= dt*0.75; h.cd3 -= dt;
+    const fz = h.elite==='frenzied' ? 1.8 : 1; h.flash -= dt; h.cd -= dt*0.75*fz; h.cd2 -= dt*0.75*fz; h.cd3 -= dt;
+    if (h.elite==='regen') h.hp = Math.min(h.maxHp, h.hp + h.maxHp*0.03*dt);
     if (!isTarget(h)){ h.kx = h.ky = 0; h.stun = 0;
       if (Math.abs(h.x-p.x) > VW*1.5 || Math.abs(h.y-p.y) > VH*1.8){ h.dead = true; if (h.prop) h.prop.live = false; }
       continue; }
@@ -542,18 +530,19 @@ function update(dt){
       case 'beat':   // baton cop: rushes in and clubs whatever zombie is closest
         h.face = ang; h.swing = (h.swing||0) - dt; vx = Math.cos(ang); vy = Math.sin(ang);
         if (zd < h.r+z.r+6 && h.cd<=0){ h.cd = rand(0.9,1.2); h.swing = 0.15; SFX.at('baton', h.x, h.y);
-          if (z===p) hurtPlayer(6, 'beat'); else { hurtMinion(z, 10); z.x += Math.cos(ang)*6; z.y += Math.sin(ang)*6; } }
+          if (z===p) hurtPlayer(6*(h.dmgMul||1), 'beat'); else { hurtMinion(z, 10); z.x += Math.cos(ang)*6; z.y += Math.sin(ang)*6; } }
         break;
       case 'riot':
         h.face = ang; vx = Math.cos(ang); vy = Math.sin(ang);
         if (zd < h.r+z.r+4 && h.cd<=0){ h.cd = 0.9;
-          if (z===p) hurtPlayer(10, 'riot'); else { hurtMinion(z, 14); z.x += Math.cos(ang)*12; z.y += Math.sin(ang)*12; } }
+          if (z===p) hurtPlayer(10*(h.dmgMul||1), 'riot'); else { hurtMinion(z, 14); z.x += Math.cos(ang)*12; z.y += Math.sin(ang)*12; } }
         break;
       case 'flamer':
         h.face = ang;
         if (zd > 70){ vx = Math.cos(ang); vy = Math.sin(ang); }
         if (zd < 130){ h.bt -= dt; if (h.bt<=0){ h.bt = 0.05; hfire(h, ang+rand(-.28,.28), rand(180,230), 2.5, {t:0.5, r:7, fire:true}); } }
         break;
+      case 'dog': case 'medic': case 'grenadier': case 'sniper': case 'swat': case 'jugg': case 'cure': { const v = aiNew(h, z, zd, ang, dt, p, rangeMul); vx = v[0]; vy = v[1]; break; }
       case 'apc': {
         const pa = Math.atan2(p.y-h.y, p.x-h.x);
         h.face += clamp(((pa-h.face+Math.PI*3)%TAU)-Math.PI, -dt*1.2, dt*1.2);
@@ -603,7 +592,7 @@ function update(dt){
     const dx = tx-m.x, dy = ty-m.y, dl = Math.hypot(dx,dy);
     let spd = 118*GS*V.sp*as*(1+0.35*nt); if (d2(m,p) > 200*200) spd *= 1.6;
     if (dl > 4){ const s = Math.min(spd*dt, dl); m.x += dx/dl*s; m.y += dy/dl*s; m.face = Math.atan2(dy,dx); }
-    if (m.target && dl < m.r + m.target.r + 5 && m.atkCd <= 0){ m.atkCd = 0.7; dmgHuman(m.target, HORDE_DMG*V.dmg*am*(1+0.4*nt), 'minion'); }
+    if (m.target && dl < m.r + m.target.r + 5 && m.atkCd <= 0){ m.atkCd = 0.7; { const md = HORDE_DMG*V.dmg*am*(1+0.4*nt); dmgHuman(m.target, md, 'minion'); if (L('leech')) heal(md*0.012*L('leech'), 'leech'); } }
   });
   S.minions = S.minions.filter(m => m.hp > 0);
   S.maxHorde = Math.max(S.maxHorde, S.minions.length);
@@ -622,15 +611,15 @@ function update(dt){
   S.pb = S.pb.filter(b => b.t > 0);
   // human projectiles
   for (const b of S.hb){ b.x += b.vx*dt; b.y += b.vy*dt; b.t -= dt;
-    if (b.shell){ if (b.t<=0) explode(b.x,b.y,70,22,'human',null,b.src); continue; }
-    if (d2(b,p) < (b.r+p.r)**2){ hurtPlayer(b.dmg, b.src); b.t = 0; continue; }
+    if (b.shell){ if (b.t<=0) explode(b.x,b.y,b.rad||70,b.dmg,'human',null,b.src); continue; }
+    if (d2(b,p) < (b.r+p.r)**2){ b.t = 0; if (!b.fire && deflect(b)) continue; hurtPlayer(b.dmg, b.src); continue; }
     for (const m of S.minions) if (m.hp>0 && m.rise<=0 && d2(b,m) < (b.r+m.r)**2){ hurtMinion(m, b.fire ? b.dmg*3 : b.dmg); b.t = 0; break; } }
   S.hb = S.hb.filter(b => b.t > 0);
   S.minions = S.minions.filter(m => m.hp > 0);
   S.humans = S.humans.filter(h => !h.dead);
 
   // brains
-  const grab = 80*(1 + 0.2*META.rank('scent')), xpMul = 1 + 0.06*META.rank('appetite');
+  const grab = 80*(1 + 0.2*META.rank('scent') + 0.1*L('eyes')), xpMul = 1 + 0.06*META.rank('appetite');
   // idle brains near each other slide together and fuse into one bigger brain (value is kept exactly)
   S.mergeT = (S.mergeT || 0) - dt;
   if (S.mergeT <= 0){ S.mergeT = 0.5;

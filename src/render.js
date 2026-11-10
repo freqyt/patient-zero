@@ -190,7 +190,7 @@ function drawChar(e, L, pose, flash, rise){
   if (d===3){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(spr, 0, 0, w, h, -hw, top, w, h); lg.restore(); }
   else lg.drawImage(spr, 0, 0, w, h, x-hw, top, w, h);
 }
-function humanPose(h){ return h.type==='civ' ? (h.panic>0 ? 'panic' : 'walk') : h.type==='riot' ? 'shield' : h.type==='beat' ? 'walk' : 'aim'; }
+function humanPose(h){ return h.type==='civ' ? (h.panic>0 ? 'panic' : 'walk') : h.type==='riot' ? 'shield' : (h.type==='beat' || h.type==='medic' || h.type==='dog') ? 'walk' : 'aim'; }
 function drawAPC(h){
   const d = dirOf(h.face), fl = h.flash > 0;
   let s = d>=2 ? apcSide() : apcFront(d===1); if (fl) s = propSprite((d>=2?'apcSw':'apcFw'+(d===1?1:0)), () => tinted(s,'#ffffff'));
@@ -256,6 +256,7 @@ function render(){
     pell(lg, x+b.px, y-2, 9, 4, '#5a0c18');
     const s = corpseSprite(b.look); if (b.flip){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(s, -14, y-14); lg.restore(); } else lg.drawImage(s, x-14, y-14); }
   lg.globalAlpha = 1;
+  drawGroundFx();
   // brains
   // three sizes by value: small (<4), big (4-14), mega (15+, drawn 2x with a glow); a pulse when brains fuse
   for (const g of S.gems){ const mega = g.v >= 15, B = g.v >= 4 ? BRAIN_L : BRAIN_S, sc = mega ? 2 : 1;
@@ -282,12 +283,15 @@ function render(){
   for (const it of S.items) drawList.push(it.y, 7, it);
   trackWalk(p); drawList.push(p.y, 6, p);
   drawSorted();
+  drawContentFx();
   for (const h of S.humans) if (h.air) drawHeli(h);   // airborne: always on top
 
   // projectiles (drawn lifted off the ground for the 2.5D read)
   for (const b of S.pb){
     lg.fillStyle = 'rgba(12,6,18,.35)'; lg.fillRect(sx(b.x)-1, sy(b.y), 3, 1);
     if (b.k==='spit') lg.drawImage(SPIT, sx(b.x)-3, sy(b.y)-13);
+    else if (b.k==='gat' || b.k==='mirror'){ const a = Math.atan2(b.vy,b.vx), x = sx(b.x), y = sy(b.y)-12; lg.fillStyle = b.k==='gat' ? '#b0a688' : '#c08030';
+      lg.fillRect(x-Math.round(Math.cos(a)*4), y-Math.round(Math.sin(a)*3), 2, 2); lg.fillStyle = b.k==='gat' ? '#f6f0dc' : '#fff2a0'; lg.fillRect(x-1, y-1, 3, 2); }
     else lg.drawImage(BONES[(S.t*16|0)%4], sx(b.x)-4, sy(b.y)-12);
   }
   for (const b of S.hb){
@@ -331,10 +335,10 @@ function drawSorted(){
       drawProp(lg, o, x, y); }
     else if (kind===2 && o.type==='crate') drawCrate(o);
     else if (kind===2 && o.type==='hazard') drawHazard(o);
-    else if (kind===2){ drawChar(o, o.look, humanPose(o), o.flash > 0);
+    else if (kind===2){ if (o.elite) drawEliteUnder(o); drawChar(o, o.look, humanPose(o), o.flash > 0);
       if (o.stun > 0 && (S.t*6|0)%2===0){ lg.fillStyle = '#ffe96b'; const a = S.t*6; lg.fillRect(sx(o.x)+Math.round(Math.cos(a)*5), sy(o.y)-29, 1, 1); lg.fillRect(sx(o.x)+Math.round(Math.cos(a+3)*5), sy(o.y)-29, 1, 1); }
       if ((o.type==='riot'||o.type==='flamer') && o.hp < o.maxHp) miniBar(sx(o.x), sy(o.y)-30, 12, o.hp/o.maxHp, '#ff4a4a'); }
-    else if (kind===3) drawAPC(o);
+    else if (kind===3) drawBoss(o);
     if (kind===2 && o.swing > 0){ const x = sx(o.x), y = sy(o.y) - 12; lg.fillStyle = '#f0ecdc';
       for (let i=-3;i<=3;i++){ const a = o.face + i*0.25; lg.fillRect(Math.round(x+Math.cos(a)*11), Math.round(y+Math.sin(a)*7), 1, 1); } }
     else if (kind===4){ const r = o.rise > 0 ? 1 - o.rise/0.45 : 1; drawChar(o, o.look, 'reach', o.flash > 0, r);
@@ -388,7 +392,7 @@ function lighting(nt){
       if (h.type==='cop' || h.type==='soldier') cones.push({x, y:y-12, a:h.face, sp:0.36, r:95});
       else if (h.type==='flamer') Ls.push({x:x+Math.round(Math.cos(h.face)*8), y:y-10, r:18, spr:BAND.blue, a:0.6, amb:true});
       else if (h.type==='heli') cones.push({x, y:y-6, a:Math.atan2(sy(S.player.y)-y, sx(S.player.x)-x), sp:0.2, r:230});
-      else if (h.boss){ for (const s of [-1,1]) cones.push({x:x + Math.round(Math.cos(h.face)*28 - Math.sin(h.face)*6*s), y:y-14 + Math.round(Math.sin(h.face)*14), a:h.face, sp:0.3, r:140}); }
+      else if (h.type==='apc' || h.type==='swat'){ for (const s of [-1,1]) cones.push({x:x + Math.round(Math.cos(h.face)*28 - Math.sin(h.face)*6*s), y:y-14 + Math.round(Math.sin(h.face)*14), a:h.face, sp:0.3, r:140}); }
     }
     for (const b of S.hb) if (b.fire) Ls.push({x:sx(b.x), y:sy(b.y)-8, r:16, spr:BAND.orange, a:0.8*b.t/0.5});
     for (const h of S.humans) if (h.type==='crate') Ls.push({x:sx(h.x), y:sy(h.y)-10, r:20, spr:BAND.warm, a:0.6});
@@ -528,7 +532,7 @@ function drawHUD(nt){
       ptext(lg, shown, LW/2 - textW(b.text,sc)/2, y-2, '#c8ff7a', {shadow:'#170d1c', scale:sc});
       if (el > 0.6) ptext(lg, b.sub, LW/2, y+(sc===2?15:8), '#e8e0d0', {align:'center', shadow:'#170d1c'}); } }
 
-  if (p.saw > 0){ win(3,46,104,12); ptext(lg, 'SAW', 7, 49, (S.t*8|0)%2 ? '#ffb040' : '#ffe0a0'); pbar(28,51,74,3,p.saw/8,'#ffd080','#e07a20'); }
+  if (p.saw > 0){ win(3,46,104,12); ptext(lg, 'GAT', 7, 49, (S.t*8|0)%2 ? '#ece4c8' : '#fff4c0'); pbar(28,51,74,3,p.saw/8,'#fff4c0','#b0a688'); }
   for (const it of S.items) if (it.t > 5) edgeArrow(it.x, it.y, ITEM_COL[it.k]);
   for (const h of S.humans) if (h.type==='crate') edgeArrow(h.x, h.y, '#d8a860');
   if (S.crowd) edgeArrow(S.crowd.x, S.crowd.y, (S.t*6|0)%2 ? '#ff9ccc' : '#c84a8a');
@@ -545,14 +549,12 @@ function tintedVig(){ const key = LW+'x'+LH; if (tvKey !== key){ tvCache = tinte
 function itemSpr(rows, pal){ const c = mk(rows[0].length+2, rows.length+2); c.getContext('2d').drawImage(pixIcon(rows, pal), 1, 1); return outline(c); }
 function rot90(c, dir){ const o = mk(c.height, c.width), g = o.getContext('2d');
   g.translate(o.width/2, o.height/2); g.rotate(dir*Math.PI/2); g.drawImage(c, -c.width/2, -c.height/2); return o; }
-const SAW_PAL = {H:'#2e2e34', B:'#e07a20', O:'#ffb848', G:'#a8acb4', K:'#4a4e56', T:'#e8ecf2'};
-const SAW_ROWS = f => [
-  '..HH............',
-  '.HBBBBB.'+(f ? 'T.T.T.T.' : '.T.T.T.T'),
-  'HBOOOBBGGGGGGGGT',
-  'HBOOOBB'+(f ? 'GKGKGKGKG' : 'KGKGKGKGK'),
-  '.HBBBBBGGGGGGGGT',
-  '..HH....'+(f ? '.T.T.T.T' : 'T.T.T.T.')];
+const SAW_PAL = {F:'#5a2a2a', M:'#c06060', L:'#e89090', B:'#ece4c8', K:'#8a8070', W:'#fff4c0'};
+// Bone Gatling: a fleshy grip feeding a bundle of bone barrels; frames swap barrel shading to "spin"
+const SAW_ROWS = f => {
+  const rows = ['..FFFF..........', '.FMMMMFBBBBBBBB.', 'FMLMMFKKKKKKKKKW', 'FMMMMFBBBBBBBBB.', 'FMMMMFKKKKKKKKKW', '.FMMFFBBBBBBBBB.', '..FF............'];
+  return f ? rows.map(r => r.replace(/[BK]/g, ch => ch === 'B' ? 'K' : 'B')) : rows;
+};
 const SAWF = [0,1].map(f => itemSpr(SAW_ROWS(f), SAW_PAL));
 const SAWD = SAWF.map(c => rot90(c, 1)), SAWU = SAWF.map(c => rot90(c, -1));
 const ITEM_SPR = {
@@ -716,4 +718,77 @@ function drawMinimap(x0, y0, w, h){
   if (S.crowd) dot(S.crowd.x, S.crowd.y, '#ff9ccc', 2);
   for (const o of S.humans) if (o.boss && (S.t*4|0)%2) dot(o.x, o.y, '#ff3a2a', 3);
   lg.fillStyle = '#ffffff'; lg.fillRect(cx-1, cy-1, 2, 2);
+}
+
+// ---------- new content visuals ----------
+// spore mines and The Cure's gas, drawn on the ground layer
+function drawGroundFx(){
+  for (const m of S.mines){ const x = sx(m.x), y = sy(m.y), lit = m.arm <= 0 && ((S.t*4 + m.seed*4)|0) % 2;
+    lg.fillStyle = 'rgba(12,6,18,.35)'; lg.fillRect(x-3, y+1, 6, 1);
+    pell(lg, x, y-2, 3, 2, lit ? '#9be03a' : '#4e8a1e'); lg.fillStyle = '#c4ff6a'; lg.fillRect(x-1, y-4, 1, 1); }
+  for (const c of S.cures){ const a = Math.min(1, c.t/1.5)*0.5;
+    band(lg, BAND.blue, sx(c.x), sy(c.y)-4, c.r/2, a); band(lg, BAND.white, sx(c.x), sy(c.y)-4, c.r/4, a*0.5);
+    if (Math.random() < 0.3) S.parts.push({k:'smoke', x:c.x+rand(-c.r,c.r)*0.7, y:c.y+rand(-c.r,c.r)*0.5, vx:0, vy:-10, t:.7, max:.7, r:3, grow:6}); }
+  lg.globalAlpha = 1;
+}
+// tendril lashes and sniper laser sights, drawn above the sprites
+function drawContentFx(){
+  for (const q of S.parts) if (q.k === 'lash'){
+    const f = q.t/q.max, x1 = sx(q.x), y1 = sy(q.y)-14, x2 = sx(q.x2), y2 = sy(q.y2)-12, n = Math.max(4, Math.hypot(x2-x1, y2-y1)/2|0);
+    lg.fillStyle = f > 0.5 ? '#d08af0' : '#8a3aa0';
+    for (let i=0;i<=n;i++){ const t = i/n; lg.fillRect(Math.round(x1+(x2-x1)*t + Math.sin(t*9+S.t*40)*2*f), Math.round(y1+(y2-y1)*t + Math.cos(t*7)*1.5), 1, 1); } }
+  for (const h of S.humans) if (h.type === 'sniper' && h.aimT > 0){
+    const x1 = sx(h.x), y1 = sy(h.y)-13, x2 = sx(h.aimX), y2 = sy(h.aimY)-12, n = Math.hypot(x2-x1, y2-y1)|0;
+    lg.fillStyle = (S.t*20|0)%2 || h.aimT < 0.4 ? '#ff3030' : '#a01010';
+    for (let i=0;i<n;i+=2){ const t = i/n; lg.fillRect(Math.round(x1+(x2-x1)*t), Math.round(y1+(y2-y1)*t), 1, 1); }
+    lg.fillStyle = '#ff6060'; lg.fillRect(x2-1, y2-1, 3, 3); }
+}
+// elites: spinning ring in the affix colour, a soft glow, a skull marker and an always-on health bar
+function drawEliteUnder(o){
+  const A = ELITE[o.elite], x = sx(o.x), y = sy(o.y), r = 8 + ((S.t*6|0)%2), n = 18;
+  lg.fillStyle = A.c; for (let i=0;i<n;i+=2){ const a = i/n*TAU + S.t*2; lg.fillRect(Math.round(x+Math.cos(a)*r), Math.round(y+Math.sin(a)*r*0.45), 1, 1); }
+  lg.globalCompositeOperation = 'lighter'; band(lg, BAND.white, x, y-12, 14, 0.12); lg.globalCompositeOperation = 'source-over'; lg.globalAlpha = 1;
+  const my = y - 36;
+  lg.fillStyle = '#170d1c'; lg.fillRect(x-3, my-1, 7, 6);
+  lg.fillStyle = A.c; lg.fillRect(x-2, my, 5, 3); lg.fillRect(x-1, my+3, 3, 1);
+  lg.fillStyle = '#170d1c'; lg.fillRect(x-1, my+1, 1, 1); lg.fillRect(x+1, my+1, 1, 1);
+  miniBar(x, my-4, 16, o.hp/o.maxHp, A.c);
+}
+// bosses
+function drawBoss(h){
+  if (h.type === 'apc') return drawAPC(h);
+  if (h.type === 'swat') return drawVan(h);
+  drawBigChar(h);
+}
+function drawBigChar(h){   // Juggernaut & The Cure: regular character art at 2x
+  const d = dirOf(h.face), step = h.moving ? [0,1,0,2][((h.walk||0)/5|0)%4] : 0;
+  const spr = charSprite(h.look, d===3 ? 2 : d, step, 'aim', h.flash > 0), w = spr.width*2, hh = spr.height*2, x = sx(h.x), y = sy(h.y);
+  if (d === 3){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(spr, -w/2, y-hh+4, w, hh); lg.restore(); }
+  else lg.drawImage(spr, x-w/2, y-hh+4, w, hh);
+  if (h.type === 'jugg' && h.charge > 0 && Math.random() < 0.6) FX.smoke(h.x, h.y, 1, 0.6);
+  if (h.type === 'cure' && Math.random() < 0.15) S.parts.push({k:'smoke', x:h.x+rand(-10,10), y:h.y-30, vx:0, vy:-12, t:.6, max:.6, r:3, grow:5});
+}
+function vanSide(){ return propSprite('vanS', () => propCanvas(66,40,(P) => {
+  for (const wx of [10,46]){ P(wx,30,11,9,'#141418'); P(wx+3,32,5,4,'#5a5a62'); }
+  P(2,10,60,22,'#1e2230'); P(2,10,60,1,'#3a4058'); P(2,30,60,2,'#12141c');
+  P(48,12,12,8,'#4a6a8a'); P(50,13,4,2,'#9ac0e0'); P(36,13,10,7,'#2a3a4a');
+  P(4,22,40,4,'#e8e8e0'); for (const lx of [8,16,24,32]) P(lx,22,3,4,'#1e2230');
+  P(60,22,2,3,'#fff2b0'); P(2,22,2,3,'#d02020'); P(18,6,26,4,'#2a2e3a');
+})); }
+function vanFront(back){ return propSprite('vanF'+(back?1:0), () => propCanvas(46,44,(P) => {
+  P(1,28,6,12,'#141418'); P(39,28,6,12,'#141418');
+  P(6,8,34,30,'#1e2230'); P(6,8,34,1,'#3a4058'); P(6,36,34,2,'#12141c');
+  if (!back){ P(9,12,28,9,'#4a6a8a'); P(11,13,8,2,'#9ac0e0'); } else { P(10,12,26,9,'#1a1e2a'); P(22,12,1,9,'#3a4058'); }
+  const l = back ? '#d02020' : '#fff2b0'; P(9,26,6,3,l); P(31,26,6,3,l); P(16,30,14,3,'#e8e8e0');
+})); }
+function drawVan(h){
+  const d = dirOf(h.face), fl = h.flash > 0;
+  let s = d >= 2 ? vanSide() : vanFront(d === 1); if (fl) s = propSprite((d>=2 ? 'vanSw' : 'vanFw'+(d===1?1:0)), () => tinted(s, '#ffffff'));
+  const x = sx(h.x), y = sy(h.y) + 10;
+  if (d === 3){ lg.save(); lg.translate(x,0); lg.scale(-1,1); lg.drawImage(s, -Math.floor(s.width/2), y-s.height); lg.restore(); }
+  else lg.drawImage(s, x-Math.floor(s.width/2), y-s.height);
+  const on = (S.t*8|0)%2, ty = y - s.height + 1;   // flashing light bar
+  lg.fillStyle = on ? '#ff3030' : '#3050ff'; lg.fillRect(x-7, ty, 6, 2);
+  lg.fillStyle = on ? '#3050ff' : '#ff3030'; lg.fillRect(x+1, ty, 6, 2);
+  if (h.hp < h.maxHp*0.5 && Math.random() < 0.25) FX.smoke(h.x+rand(-20,20), h.y-30, 1, 0.8);
 }

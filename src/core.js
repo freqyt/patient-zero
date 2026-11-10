@@ -27,8 +27,15 @@ const HT = {
   flamer: {hp:80,  sp:66, r:12, xp:6},
   apc:    {hp:1600,sp:44, r:34, xp:60, boss:true},
   heli:   {hp:3200,sp:0,  r:30, xp:150, boss:true, air:true},   // final boss: the gunship
+  dog:      {hp:12,  sp:150, r:7,  xp:2},   // K9 unit: fast melee
+  medic:    {hp:26,  sp:80,  r:10, xp:4},   // heals nearby humans
+  grenadier:{hp:45,  sp:70,  r:11, xp:5},   // lobs grenades at the horde
+  sniper:   {hp:30,  sp:60,  r:10, xp:6},   // laser telegraph, then one heavy shot
+  swat:     {hp:1500,sp:70,  r:30, xp:60, boss:true},   // van that deploys squads
+  jugg:     {hp:1300,sp:40,  r:22, xp:60, boss:true},   // minigun + charge
+  cure:     {hp:1100,sp:60,  r:16, xp:60, boss:true},   // gas that melts the horde
 };
-const BOSS_NAME = {apc:'ARMORED CARRIER', heli:'GUNSHIP'};
+const BOSS_NAME = {apc:'ARMORED CARRIER', heli:'GUNSHIP', swat:'SWAT VAN', jugg:'JUGGERNAUT', cure:'THE CURE'};
 // evolutions: a max-level mutation plus its partner (any level) unlocks a super form
 const EVOS = {
   spit:   {w:'contagion', n:'Plague Geyser', ic:'🌋', d:'+2 globs and pierce; every glob bursts into an acid splash.'},
@@ -37,6 +44,9 @@ const EVOS = {
   aura:   {w:'boom',      n:'Necrotic Nova', ic:'☢️', d:'Rot Cloud 40% wider, 2x damage; its victims burst.'},
   trail:  {w:'legs',      n:'Acid Stampede', ic:'🐾', d:'A wide, double-strength sludge trail and +15% speed.'},
   alpha:  {w:'horde',     n:'Horde King',    ic:'👑', d:'+6 horde size and your horde hits 50% harder.'},
+  lash:   {w:'leech',     n:'Blood Whip',    ic:'🐙', d:'Lash one more target, 40% harder and faster; every lash heals you.'},
+  spores: {w:'hunger',    n:'Fungal Bloom',  ic:'🌱', d:'Drop 3 pods at once with 60% bigger blasts that seed new pods.'},
+  chitin: {w:'eyes',      n:'Mirror Carapace', ic:'🪞', d:'+15% deflect; deflected bullets fire back at triple damage.'},
 };
 // minion variants: the dead keep their gear
 const VAR = {
@@ -46,6 +56,10 @@ const VAR = {
   riot:   {hp:110, sp:0.8, dmg:1.6, r:13},
   soldier:{hp:55,  sp:1.05,dmg:1.3, r:11},
   flamer: {hp:45,  sp:1.0, dmg:1.0, r:12, bloat:true},
+  dog:      {hp:28,  sp:1.6, dmg:0.8, r:8},
+  medic:    {hp:34,  sp:1.0, dmg:1.0, r:10},
+  grenadier:{hp:50,  sp:0.95,dmg:1.2, r:11},
+  sniper:   {hp:36,  sp:1.0, dmg:1.1, r:10},
 };
 const MUTS = {
   spit:     {n:'Bile Spit',       ic:'🟢', b:'Hurl acid globs at the nearest humans.',         u:'More globs, more damage, more pierce.'},
@@ -61,6 +75,11 @@ const MUTS = {
   hide:     {n:'Necrotic Hide',   ic:'🛡️', b:'+25 max HP and slow regeneration.',               u:'+25 max HP, faster regen.'},
   legs:     {n:'Sprinter Legs',   ic:'🦵', b:'+10% movement speed.',                            u:'+10% movement speed.'},
   hunger:   {n:'Ravenous',        ic:'🍖', b:'Heal with every kill.',                           u:'More healing per kill.'},
+  lash:     {n:'Lash Tendrils',   ic:'🦑', b:'Whip the nearest humans with tendrils and drag them in.', u:'More tendrils, harder lashes, faster.'},
+  spores:   {n:'Spore Pods',      ic:'🍄', b:'Drop spore mines that burst when humans step near.',   u:'Bigger, deadlier blasts, more often.'},
+  leech:    {n:'Blood Leech',     ic:'🩸', b:'Heal from the damage your horde deals.',               u:'More healing from your horde.'},
+  chitin:   {n:'Chitin Shell',    ic:'🐚', b:'Chance to deflect bullets, and take 4% less damage.', u:'+8% deflect chance, 4% tougher.'},
+  eyes:     {n:'Extra Eyes',      ic:'👁️', b:'+12% attack range, pickup range and +4% crit chance.', u:'+12% range, +4% crit.'},
 };
 const MAXLV = 5;
 const MAX_SLOTS = 6;   // distinct mutations you can carry; once full, level-ups only upgrade owned ones

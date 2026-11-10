@@ -90,13 +90,17 @@ function baseLook(type){
   if (type==='cop'){ L.shirt = shades('#2c3e78'); L.pants = shades('#1e2a50'); L.gear = 'cap'; L.weapon = 'pistol'; L.pose = 'aim'; }
   if (type==='soldier'){ L.shirt = shades('#5a6b3a'); L.pants = shades('#4a5530'); L.gear = 'helmet'; L.weapon = 'rifle'; L.pose = 'aim'; L.vest = true; L.shoe = '#2a2418'; }
   if (type==='riot'){ L.shirt = shades('#2b3242'); L.pants = shades('#222838'); L.gear = 'riot'; L.shield = true; L.shoe = '#141418'; }
+  if (type==='dog'){ L.fur = shades(pick(['#6a4a2a','#2a2420','#8a6a3a'])); L.collar = '#2c3e78'; }
+  if (type==='medic'){ L.shirt = shades('#e8e8e0'); L.pants = shades('#3a4a6a'); L.gear = 'medic'; L.medic = true; }
+  if (type==='grenadier'){ L.shirt = shades('#4a5a3a'); L.pants = shades('#3a4430'); L.gear = 'helmet'; L.weapon = 'launcher'; L.pose = 'aim'; L.vest = true; L.shoe = '#2a2418'; }
+  if (type==='sniper'){ L.shirt = shades('#3a4a2a'); L.pants = shades('#2e3a24'); L.gear = 'beret'; L.weapon = 'longrifle'; L.pose = 'aim'; L.shoe = '#2a2418'; }
   if (type==='flamer'){ L.shirt = shades('#d07a22'); L.pants = shades('#b0661c'); L.gear = 'mask'; L.weapon = 'nozzle'; L.pose = 'aim'; L.tank = true; L.shoe = '#2a2a2a'; }
   return L;
 }
 // fixed pools keep the sprite cache bounded
-const LOOKS = {civ:[], beat:[], cop:[], soldier:[], riot:[], flamer:[]};
+const LOOKS = {dog:[], medic:[], grenadier:[], sniper:[], civ:[], beat:[], cop:[], soldier:[], riot:[], flamer:[]};
 for (let i=0;i<16;i++) LOOKS.civ.push(baseLook('civ'));
-for (const t of ['beat','cop','soldier','riot','flamer']) for (let i=0;i<3;i++) LOOKS[t].push(baseLook(t));
+for (const t of ['dog','medic','grenadier','sniper','beat','cop','soldier','riot','flamer']) for (let i=0;i<3;i++) LOOKS[t].push(baseLook(t));
 const ZLOOK = new Map();
 function zombieLook(L){
   let Z = ZLOOK.get(L.id); if (Z) return Z;
@@ -105,6 +109,7 @@ function zombieLook(L){
     bloat: L.type==='flamer', tank:false,
     blood: [[rand(-3,2)|0, rand(0,5)|0],[rand(-3,2)|0, rand(0,5)|0],[rand(-3,2)|0, rand(0,5)|0]],
     rowOps: {del:[20,25], delCol:12}});   // horde is 2px shorter and 1px narrower than the player
+  if (L.type==='dog'){ Z.rowOps = null; Z.fur = shades(pick(['#6e7a6a','#7a8478','#5e6a5e'])); Z.pose = 'walk'; }
   ZLOOK.set(L.id, Z); return Z;
 }
 const PLAYER_BASE = {type:'player', player:true, zombie:true, skin: shades('#9ccc48'), hair: shades('#2a1a14'), style:2,
@@ -191,6 +196,21 @@ function drawMuts(P, M, dir, X, hy){
     const xs = side ? [X-2+hx,X+hx,X+2+hx] : [X-3,X-1,X+1,X+3,X-5,X+4], n = side ? Math.min(3,1+Math.floor(v/2)) : Math.min(6,v+1);
     for (let i=0;i<n;i++){ const hgt = (i<2?2:1) + (v>=5?1:0); P(xs[i], top-hgt+1, 1, hgt, cr); }
     P(side ? X-2+hx : X-4, top+1, side ? 6 : 8, 1, '#a08030'); }
+  // newer mutations
+  if ((v = lv('chitin'))){ const c1 = '#5a3a2a', c2 = '#8a5a3a', hgt = Math.min(8, 3+v);
+    if (back){ P(X-4,12,8,hgt,c1); P(X-4,12,8,1,c2); P(X-1,12,1,hgt,'#2a1a10'); }
+    else if (side){ P(X-4,12,2,hgt,c1); P(X-4,12,1,hgt,c2); }
+    else { P(X-6,11,2,2,c1); P(X+4,11,2,2,c1); if (v>=3){ P(X-6,13,1,3,c1); P(X+5,13,1,3,c1); } } }
+  if ((v = lv('leech'))){ const r = '#c0283a';
+    if (front){ P(X-5,14,1,2,r); if (v>=2) P(X+4,15,1,2,r); if (v>=3) P(X-2,hy+2,1,2,r); if (v>=4) P(X+1,17,1,2,r); if (v>=5) P(X-3,18,2,1,r); }
+    else if (side){ P(X,15,1,2,r); if (v>=3) P(X+1+hx,hy+2,1,2,r); } }
+  if ((v = lv('spores'))){ const s = side ? [[X-5,11],[X-4,15],[X-5,18]] : [[X-6,10],[X+4,10],[X-2,19],[X+2,18],[X-5,16]];
+    for (let i=0;i<Math.min(s.length,v);i++){ const [x,y] = s[i]; P(x,y,2,2,'#7acc2a'); P(x,y,1,1,'#c4ff6a'); } }
+  if ((v = lv('lash'))){ const t = '#8a3aa0';
+    if (!side){ for (let i=0;i<Math.min(3,1+Math.floor(v/2));i++){ P(X-7-i,15+i*2,1,3,t); P(X+6+i,15+i*2,1,3,t); } P(X-7,15,1,1,'#b05ac8'); }
+    else for (let i=0;i<Math.min(4,v);i++) P(X-5-i,13+i*2,2,1,t); }
+  if ((v = lv('eyes'))){ const s = front ? [[X-3,hy+1],[X+2,hy+1],[X-1,hy],[X-4,hy+5],[X+3,hy+5]] : side ? [[X+1+hx,hy+1],[X+3+hx,hy+1],[X+hx,hy+5]] : [];
+    for (let i=0;i<Math.min(s.length,v);i++){ const [x,y] = s[i]; P(x,y,1,1,'#ffe060'); } }
 }
 
 // ---------- character sprite builder (24x28, feet at row 25, centre x 12) ----------
@@ -237,6 +257,7 @@ function buildChar(L, dir, step, pose){
   if (L.type==='soldier' && !L.vest){}
   if (L.type==='soldier' && !side){ P(X-4,13,1,1,'#3e4a28'); P(X+2,18,1,1,'#3e4a28'); }
   if (L.type==='cop' && front){ P(X+1,13,1,1,'#f0d050'); P(X-4,18,8,1,'#141420'); }
+  if (L.medic && !side){ P(X-1,14,3,1,'#d02020'); P(X,13,1,3,'#d02020'); }
   if (Z && L.blood && !back) for (const [bx,by] of L.blood) P(X+bx,13+by,side?1:2,1,'#8a1424');
   if (Z && !L.gown && !side){ g.clearRect(X-3,19,1,1); g.clearRect(X,19,1,1); g.clearRect(X+2,19,1,1); }
   if (L.bloat){ const pu = '#b4f04a';
@@ -269,11 +290,17 @@ function buildChar(L, dir, step, pose){
         if (L.weapon==='pistol'){ P(X+5,13,4,2,'#2b2b33'); P(X+5,13,4,1,'#4a4a55'); }
         if (L.weapon==='rifle'){ P(X-3,15,3,3,'#4a3a26'); P(X-1,15,12,2,'#33332a'); P(X-1,15,12,1,'#55553f'); P(X+4,17,2,2,'#2a2a22'); }
         if (L.weapon==='nozzle'){ P(X+2,16,8,2,'#6a6a70'); P(X+2,16,8,1,'#8a8a90'); P(X+10,16,1,2,'#7ab8ff'); }
+        if (L.weapon==='launcher'){ P(X,13,9,4,'#3a3a2a'); P(X,13,9,1,'#5a5a44'); P(X+8,12,2,6,'#2a2a20'); }
+        if (L.weapon==='longrifle'){ P(X-3,15,16,2,'#2a2a22'); P(X-3,15,16,1,'#4a4a3a'); P(X+6,13,4,2,'#1a1a14'); }
+        if (L.weapon==='minigun'){ P(X-1,14,13,5,'#2a2a2e'); P(X-1,14,13,1,'#4a4a52'); P(X+11,14,2,5,'#5a5a62'); P(X+1,18,4,3,'#3a3020'); }
       } else if (front){
         P(X-6,12,2,3,sh[1]); P(X+4,12,2,3,sh[1]); P(X-5,14,3,2,sh[2]); P(X+2,14,3,2,sh[2]); P(X-2,15,4,2,sk[1]);
         if (L.weapon==='pistol'){ P(X-1,16,2,3,'#2b2b33'); }
         if (L.weapon==='rifle'){ P(X-1,13,2,9,'#33332a'); P(X-1,13,1,9,'#55553f'); }
         if (L.weapon==='nozzle'){ P(X-1,15,2,7,'#6a6a70'); P(X-1,22,2,1,'#7ab8ff'); }
+        if (L.weapon==='launcher'){ P(X-2,13,4,7,'#3a3a2a'); P(X-1,19,2,1,'#1a1a14'); }
+        if (L.weapon==='longrifle'){ P(X-1,12,2,11,'#2a2a22'); P(X-1,12,1,11,'#4a4a3a'); }
+        if (L.weapon==='minigun'){ P(X-3,14,6,7,'#2a2a2e'); P(X-2,20,1,1,'#5a5a62'); P(X,20,1,1,'#5a5a62'); }
       } else { P(X-6,12,2,3,sh[2]); P(X+4,12,2,3,sh[2]); if (L.weapon==='rifle') P(X+3,8,2,5,'#33332a'); }
       break;
     case 'reach':
@@ -331,6 +358,14 @@ function buildChar(L, dir, step, pose){
       else if (front){ P(X-5,hy-1,10,9,'#d07a22'); P(X-5,hy-1,10,1,'#f09a42'); P(X-3,hy+2,6,4,'#2e2e2e'); P(X-3,hy+2,2,2,'#9fe0f8'); P(X+1,hy+2,2,2,'#9fe0f8'); P(X-1,hy+5,2,2,'#5a5a5a'); }
       else { P(X-5,hy-1,10,9,'#d07a22'); P(X-5,hy-1,10,1,'#f09a42'); }
       break;
+    case 'medic':
+      if (side){ P(X-3+hx,hy-1,7,3,'#f0f0e8'); P(X+3+hx,hy+1,3,1,'#c8c8c0'); }
+      else { P(X-4,hy-1,8,3,'#f0f0e8'); if (front){ P(X-4,hy+2,8,1,'#c8c8c0'); P(X-1,hy-1,2,1,'#d02020'); P(X-2,hy,4,1,'#d02020'); } }
+      break;
+    case 'beret':
+      if (side){ P(X-3+hx,hy-1,7,2,'#2a3a1a'); P(X-4+hx,hy,2,2,'#2a3a1a'); }
+      else { P(X-4,hy-1,8,2,'#2a3a1a'); P(X-5,hy,2,2,'#2a3a1a'); if (front) P(X+1,hy-1,2,1,'#c8a040'); }
+      break;
     case 'brain':
       if (side){ P(X-3+hx,hy-2,7,4,'#e88aaa'); P(X-2+hx,hy-2,5,1,'#ffc4d8'); P(X+hx,hy-1,1,2,'#a8486e'); for (let i=0;i<7;i+=2) P(X-3+hx+i,hy+2,1,1,'#3a1a22'); }
       else { P(X-4,hy-2,8,4,'#e88aaa'); P(X-3,hy-2,6,1,'#ffc4d8'); P(X-1,hy-1,1,3,'#a8486e'); P(X+2,hy-1,1,2,'#a8486e');
@@ -352,7 +387,7 @@ function charSprite(L, dir, step, pose, flash){
   const key = L.id*1000 + dir*100 + step*10 + (['walk','aim','reach','panic','shield'].indexOf(pose)) + (flash ? 0.5 : 0);
   let s = spriteCache.get(key); if (s) return s;
   if (flash){ s = tinted(charSprite(L,dir,step,pose,false), '#ffffff'); }
-  else s = buildChar(L, dir, step, pose);
+  else s = L.type==='dog' ? buildDog(L, dir, step) : buildChar(L, dir, step, pose);
   spriteCache.set(key, s); return s;
 }
 function corpseSprite(L){
@@ -489,3 +524,31 @@ SPR.kiosk = () => propSprite('kiosk', () => propCanvas(76,52,(P) => {
   P(9,30,6,4,'#c8a83a'); P(52,28,10,6,'#a8e060');                                // shelf goods
   P(4,46,68,2,'#8a8270'); P(14,36,1,1,'#1a1a1a');
 }));
+
+// ---------- K9 dog (4 facings like the people; zombie dogs get grey fur and red eyes) ----------
+function buildDog(L, dir, step){
+  const c = mk(24,32), g = c.getContext('2d'), X = 12; g.translate(0,4);
+  const P = (x,y,w,h,col) => { g.fillStyle = col; g.fillRect(x,y,w,h); };
+  const f = L.fur, Z = !!L.zombie, eye = Z ? '#ff4040' : '#1a0f1f', s = step===1 ? 1 : step===2 ? -1 : 0;
+  if (dir === 2){
+    P(X-10,15,3,1,f[2]); P(X-11,14,1,1,f[2]);                                   // tail
+    P(X-6+s,21,2,4,f[2]); P(X+3-s,21,2,4,f[2]); P(X-4-s,21,2,4,f[1]); P(X+5+s,21,2,4,f[1]);   // legs
+    P(X-7,16,13,6,f[1]); P(X-7,16,13,1,f[0]); P(X-7,21,13,1,f[2]);              // body
+    P(X+4,12,6,6,f[1]); P(X+4,12,6,1,f[0]); P(X+9,15,3,3,f[1]); P(X+11,15,1,1,'#1a0f1f');   // head + snout
+    P(X+5,10,2,3,f[2]); P(X+7,14,1,1,eye);
+    if (L.collar && !Z) P(X+3,16,2,3,L.collar);
+    if (Z){ P(X-2,17,2,2,'#8a1424'); P(X+9,17,2,1,'#e0d8c8'); }
+  } else {
+    const back = dir === 1;
+    P(X-4,20+(step===1?-1:0),2,5,f[2]); P(X+2,20+(step===2?-1:0),2,5,f[2]);   // legs
+    P(X-4,16,8,6,f[1]); P(X-4,16,8,1,f[0]);                                      // body
+    P(X-3,10,6,7,back ? f[2] : f[1]); P(X-3,10,6,1,f[0]); P(X-4,9,2,3,f[2]); P(X+2,9,2,3,f[2]);   // head + ears
+    if (!back){ P(X-1,14,2,2,f[0]); P(X-1,15,2,1,'#1a0f1f'); P(X-2,12,1,1,eye); P(X+1,12,1,1,eye);
+      if (L.collar && !Z) P(X-3,17,6,1,L.collar); if (Z) P(X-1,16,2,1,'#8a1424'); }
+    else P(X,14,1,3,f[2]);
+  }
+  return outline(c);
+}
+// boss looks (drawn at 2x)
+const JUGG_LOOK = Object.assign(baseLook('riot'), {id: ++LOOKID, shirt: shades('#3a3e46'), pants: shades('#2a2e36'), gear:'riot', weapon:'minigun', pose:'aim', vest:true, shield:false});
+const CURE_LOOK = Object.assign(baseLook('flamer'), {id: ++LOOKID, shirt: shades('#e8e0a0'), pants: shades('#d8d090'), gear:'mask', weapon:'nozzle', tank:true, medic:true});

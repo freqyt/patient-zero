@@ -30,6 +30,7 @@ const MUSIC = (() => {
   const R = (a,b) => a + Math.random()*(b-a);
   function env(g, t, a, hold, rel, v){ g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t+a); g.gain.setValueAtTime(v, t+a+hold); g.gain.exponentialRampToValueAtTime(0.0001, t+a+hold+rel); }
   function osc(type, f, t, a, hold, rel, v, lp, detune=0){
+    if (!isFinite(f) || !isFinite(t)) return;   // never let a bad note break the scheduler
     const c = ctx(), o = c.createOscillator(), fl = c.createBiquadFilter(), g = c.createGain();
     o.type = type; o.frequency.value = f; o.detune.value = detune; fl.type = 'lowpass'; fl.frequency.value = lp;
     env(g, t, a, hold, rel, v*duck); o.connect(fl); fl.connect(g); g.connect(SFX.musicBus); o.start(t); o.stop(t+a+hold+rel+0.05);
@@ -55,7 +56,7 @@ const MUSIC = (() => {
     if (mode !== 'title' && (section === 'B' || it > 0.6) && Math.random() < 0.75){
       // a 2-bar motif built from chord tones and scale passing notes, repeated with a twist in bars 3-4
       const rhythm = [[0,3,6,8,11,14],[0,2,4,8,10,12],[0,4,6,7,8,12,14],[0,3,4,8,11,12,15]][Math.random()*4|0];
-      const notes = rhythm.map(() => Math.random() < 0.7 ? [0,2,4][Math.random()*3|0] : 'p' + (Math.random()*7|0));
+      const notes = rhythm.map(() => Math.random() < 0.7 ? Math.random()*3|0 : 'p' + (Math.random()*7|0));   // chord tone 0-2, or a scale passing note
       lead = {rhythm, notes, oct: mode === 'boss' ? 12 : 24};
     }
   }
