@@ -18,12 +18,14 @@ function startGame(){
     player:{x:0,y:40,r:12,hp:100,maxHp:100,biteCd:0,biteT:0,biteA:0,face:Math.PI/2,flash:0,frenzy:0,devourCd:0,moving:false},
     humans:[], minions:[], corpses:[], pb:[], hb:[], gems:[], parts:[], pools:[], texts:[], lights:[],
     kills:0, level:1, xp:0, xpNext:4, pendingLv:0, mods:{spit:1}, spawnAcc:0, shake:0,
-    wt:{spit:0,spikes:1.5,screech:2,trail:0}, banner:null, crowd:null, nextCrowd:25,
+    wt:{spit:0,spikes:1.5,screech:2,trail:0}, banner:null, crowd:null, nextCrowd:14,
     bosses:{}, maxHorde:0, wasNight:false, finalWave:false,
   };
   S.combo = 0; S.comboT = 0;
   SFX.init();
   setState('play');
+  // a few oblivious civilians already in view, so the hunt starts immediately
+  for (let i=0;i<7;i++){ const a = rand(0,TAU), d = rand(110,200); spawnHuman('civ', S.player.x+Math.cos(a)*d, S.player.y+Math.sin(a)*d*0.7); }
   banner('THE OUTBREAK BEGINS', 'HUNT THE LIVING');
 }
 const L = k => S.mods[k] || 0;
@@ -35,10 +37,16 @@ function floatText(x,y,txt,col){ S.texts.push({x,y,txt,col,t:0.9}); }
 function heal(v){ const p = S.player; p.hp = Math.min(p.maxHp, p.hp+v); }
 
 // ---------- spawning ----------
+// a random point just outside the visible screen rectangle (not a circle, which puts
+// spawns far above/below the view on wide screens)
+function edgePos(margin){
+  const p = S.player, hw = VW/2 + margin, hh = VH/2 + margin;
+  if (Math.random() < hw/(hw+hh)) return [p.x + rand(-hw,hw), p.y + (Math.random()<.5 ? -hh : hh)];
+  return [p.x + (Math.random()<.5 ? -hw : hw), p.y + rand(-hh,hh)];
+}
 function spawnHuman(type, x, y){
   const T = HT[type], sc = T.boss ? 1 + S.t/400 : 1 + S.t/300;
-  if (x===undefined){ const a = Math.random()*TAU, R = Math.hypot(VW,VH)/2 + 40;
-    x = S.player.x + Math.cos(a)*R; y = S.player.y + Math.sin(a)*R; }
+  if (x===undefined) [x, y] = edgePos(30);
   const h = {type, x, y, r:T.r, hp:T.hp*sc, maxHp:T.hp*sc, sp:T.sp*rand(0.9,1.1), xp:T.xp, boss:!!T.boss,
     cd:rand(0.5,1.5), cd2:2, cd3:0, burst:0, bt:0, flash:0, stun:0, kx:0, ky:0, face:Math.random()*TAU, wa:Math.random()*TAU,
     strafe:Math.random()<0.5?1:-1, turret:0, dead:false, panic:0, look: T.boss ? null : pick(LOOKS[type])};
@@ -55,8 +63,7 @@ function pickType(){
   let r = Math.random()*sum; for (const k in w){ r -= w[k]; if (r<=0) return k; } return 'civ';
 }
 function spawnCrowd(){
-  const a = Math.random()*TAU, R = Math.hypot(VW,VH)/2 + 120;
-  const cx = S.player.x + Math.cos(a)*R, cy = S.player.y + Math.sin(a)*R, n = 14 + Math.floor(S.t/30);
+  const [cx, cy] = edgePos(90), n = 14 + Math.floor(S.t/30);
   for (let i=0;i<n;i++) spawnHuman(Math.random()<0.15 && S.t>60 ? 'cop' : 'civ', cx+rand(-60,60), cy+rand(-60,60));
   S.crowd = {x:cx, y:cy, t:9};
   SFX.play('crowd');
@@ -215,20 +222,24 @@ function update(dt){
   }
 
   // mutations
+  // attacks only fire at humans that are on screen AND within the attack's range;
+  // otherwise they stay charged and go off the moment a valid target appears
+  const visible = h => !h.dead && Math.abs(h.x-p.x) < VW/2 - 8 && Math.abs(h.y-p.y) < VH/2 - 8;
+  const anyTarget = range => S.humans.some(h => visible(h) && d2(h,p) < (range+h.r)**2);
   const wt = S.wt; let l = L('spit');
-  if (l){ wt.spit -= dt; if (wt.spit<=0){ wt.spit = 1.25*(1-0.1*l); SFX.play('spit', 0.6);
+  if (l){ wt.spit = Math.max(0, wt.spit - dt); if (wt.spit<=0){
     const n = 1 + Math.floor(l/2);
-    const tg = S.humans.filter(h=>!h.dead && d2(h,p)<320*320).sort((a,b)=>d2(a,p)-d2(b,p)).slice(0,n);
-    for (let i=0;i<n;i++){ const t = tg[i % Math.max(1,tg.length)];
-      const a = t ? Math.atan2(t.y-p.y,t.x-p.x) + (i>=tg.length?rand(-.3,.3):0) : p.face + rand(-.4,.4);
-      S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*300,vy:Math.sin(a)*300,dmg:12+6*l,t:1.2,r:6,pierce:1+Math.max(0,l-2),hit:new Set(),k:'spit'}); } } }
+    const tg = S.humans.filter(h => visible(h) && d2(h,p) < 320*320).sort((a,b)=>d2(a,p)-d2(b,p)).slice(0,n);
+    if (tg.length){ wt.spit = 1.25*(1-0.1*l); SFX.play('spit', 0.6);
+      for (let i=0;i<n;i++){ const t = tg[i % tg.length], a = Math.atan2(t.y-p.y,t.x-p.x) + (i>=tg.length ? rand(-.2,.2) : 0);
+        S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*300,vy:Math.sin(a)*300,dmg:12+6*l,t:1.2,r:6,pierce:1+Math.max(0,l-2),hit:new Set(),k:'spit'}); } } } }
   l = L('spikes');
-  if (l){ wt.spikes -= dt; if (wt.spikes<=0){ wt.spikes = 3.2 - 0.3*l; SFX.play('bone');
+  if (l){ wt.spikes = Math.max(0, wt.spikes - dt); if (wt.spikes<=0 && anyTarget(160)){ wt.spikes = 3.2 - 0.3*l; SFX.play('bone');
     const n = 6 + 2*l, off = Math.random()*TAU;
     for (let i=0;i<n;i++){ const a = off + i/n*TAU;
       S.pb.push({x:p.x,y:p.y,vx:Math.cos(a)*260,vy:Math.sin(a)*260,dmg:16+8*l,t:0.6,r:5,pierce:3,hit:new Set(),k:'spike'}); } } }
   l = L('screech');
-  if (l){ wt.screech -= dt; if (wt.screech<=0){ wt.screech = 7.5 - 0.8*l; SFX.play('screech');
+  if (l){ wt.screech = Math.max(0, wt.screech - dt); if (wt.screech<=0 && anyTarget(110 + 20*l)){ wt.screech = 7.5 - 0.8*l; SFX.play('screech');
     const R = 110 + 20*l;
     S.parts.push({k:'shock',x:p.x,y:p.y,r:10,max:R,t:.45,max2:.45,col:'#e6ffc0'});
     S.parts.push({k:'shock',x:p.x,y:p.y,r:4,max:R*0.7,t:.35,max2:.35,col:'#9be03a'});
@@ -250,7 +261,7 @@ function update(dt){
   S.pools = S.pools.filter(q=>q.t>0);
 
   // spawning
-  const rate = Math.min(1.1 + S.t/55, 10) * (isNight ? 0.85 : 1);
+  const rate = Math.min(1.8 + S.t/50, 10) * (isNight ? 0.85 : 1);
   S.spawnAcc += dt*rate;
   while (S.spawnAcc >= 1){ S.spawnAcc--; if (S.humans.length < 220) spawnHuman(pickType()); }
   if (S.t >= S.nextCrowd){ S.nextCrowd += 50; spawnCrowd(); }
@@ -269,8 +280,7 @@ function update(dt){
     const pd = Math.sqrt(d2(h,p));
     if (pd > viewR*1.9 && !h.boss){
       if (h.type==='civ' && Math.random()<0.5){ h.dead = true; continue; }
-      const a = Math.atan2(p.y-h.y, p.x-h.x) + rand(-.6,.6);
-      h.x = p.x - Math.cos(a)*(viewR+40); h.y = p.y - Math.sin(a)*(viewR+40); h._lx = undefined;
+      [h.x, h.y] = edgePos(30); h._lx = undefined;
     }
     if (h.stun > 0){ h.stun -= dt; continue; }
     const [z, zd] = nearestZombie(h), ang = Math.atan2(z.y-h.y, z.x-h.x);
@@ -279,7 +289,10 @@ function update(dt){
     switch (h.type){
       case 'civ':
         if (zd < 190){ vx = -Math.cos(ang); vy = -Math.sin(ang); sp *= 1.1; h.face = ang+Math.PI; h.panic = 0.5; }
-        else { h.wa += rand(-2,2)*dt; vx = Math.cos(h.wa)*0.45; vy = Math.sin(h.wa)*0.45; h.face = h.wa; h.panic -= dt; }
+        else { h.wa += rand(-2,2)*dt;
+          // oblivious civilians drift toward the action instead of wandering off forever
+          if (zd > 320){ const tp = Math.atan2(p.y-h.y, p.x-h.x); h.wa += clamp(((tp-h.wa+Math.PI*3)%TAU)-Math.PI, -dt*1.5, dt*1.5); }
+          vx = Math.cos(h.wa)*0.45; vy = Math.sin(h.wa)*0.45; h.face = h.wa; h.panic -= dt; }
         break;
       case 'cop': case 'soldier': {
         const R = (h.type==='cop' ? 190 : 230)*rangeMul; h.face = ang;
