@@ -250,8 +250,14 @@ function openLevel(reroll){
   const evos = Object.keys(EVOS).filter(k => L(k) >= MAXLV && L(EVOS[k].w) > 0 && !E(k));
   // fully mutated: nothing left to choose, so don't interrupt - level-ups just heal and pay a little DNA
   if (!pool.length && !evos.length){
-    const n = S.pendingLv; S.pendingLv = 0; heal(20*n, 'feast'); S.bonusDna += 2*n;
-    floatText(S.player.x, S.player.y, 'MAXED +HP', '#ffe070'); SFX.play('pickup', 0.8, 12);
+    const n = S.pendingLv, p = S.player; S.pendingLv = 0; heal(20*n, 'feast'); S.bonusDna += 2*n;
+    // still announce it: chime, golden ring burst, sparkles and a pop-up
+    SFX.play('lvlmax');
+    floatText(p.x, p.y, `LEVEL ${S.level}! +${20*n} HP`, '#ffe070', true);
+    S.parts.push({k:'shock', x:p.x, y:p.y, r:6, max:70, t:.45, max2:.45, col:'#ffe070'});
+    S.parts.push({k:'shock', x:p.x, y:p.y, r:2, max:40, t:.35, max2:.35, col:'#fff4c0'});
+    for (let i=0;i<14;i++) S.parts.push({k:'spark', x:p.x, y:p.y, vx:rand(-160,160), vy:rand(-200,20), t:rand(.3,.6), max:.6, col: Math.random()<.5 ? '#ffe070' : '#ff9ccc'});
+    S.lights.push({x:p.x, y:p.y, r:90, spr:BAND.yellow, t:.35, max:.35, a:1});
     if (S.state === 'level') setState('play');
     return;
   }

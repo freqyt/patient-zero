@@ -121,6 +121,9 @@ const SFX = (() => {
     levelup(v){ [220,262,330,440].forEach((f,i) => { voice({type:'sawtooth', f0:f, dur:.9-i*.12, vol:.07*v, delay:i*.09, lp:1600, lp1:600, att:.02, echo:.5});
         voice({type:'sine', f0:f*2, dur:.6, vol:.05*v, delay:i*.09, echo:.5}); });
       hiss({dur:.5, vol:.08*v, f0:3000, f1:6000, type:'bandpass', q:2, echo:.5}); },
+    // maxed-out level-up: a short bright rising chime with a shimmer tail
+    lvlmax(v){ [392,523,659,784].forEach((f,i) => voice({type:'triangle', f0:f, dur:.22, vol:.09*v, delay:i*.05, lp:4200, echo:.5}));
+      voice({type:'sine', f0:1568, dur:.35, vol:.04*v, delay:.2, echo:.6}); hiss({dur:.3, vol:.05*v, f0:5000, f1:9000, type:'highpass', delay:.15, echo:.5}); },
     select(v){ voice({type:'triangle', f0:330, f1:660, dur:.12, vol:.12*v, lp:3000, echo:.4}); hiss({dur:.08, vol:.12*v, f0:1500, f1:500, type:'bandpass', q:4}); },
     click(v){ hiss({dur:.03, vol:.2*v, f0:2500, f1:1500, type:'bandpass', q:3}); },
     // events
@@ -159,7 +162,7 @@ const SFX = (() => {
   const GAP = {gun:.075, mg:.1, die:.16, squish:.12, bite:.08, flame:.22, pickup:.04, bone:.1, spit:.07, boom:.12, rise:.25, hurt:.14, crowd:1,
     sawbuzz:.14, item:.2, baton:.12, splat:.1, crack:.1, clang:.1};
   // sounds that must always play (player feedback & big moments); everything else yields when busy
-  const KEY = new Set(['levelup','evolve','select','click','hurt','alarm','nuke','night','dawn','gameover','win','devour','eat','magnet','saw','chest','crateBreak']);
+  const KEY = new Set(['levelup','lvlmax','evolve','select','click','hurt','alarm','nuke','night','dawn','gameover','win','devour','eat','magnet','saw','chest','crateBreak']);
   const MAX_LIVE = 36, BURST = 7;          // concurrent sources, and new sounds allowed per 60ms window
   let winStart = 0, winCount = 0;
   function play(name, vol=1, arg){
